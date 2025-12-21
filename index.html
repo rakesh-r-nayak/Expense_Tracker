@@ -296,20 +296,31 @@ const db = firebase.firestore();
                 }));
             };
 
-            const calculations = useMemo(() => {
-                const totalDebit = expenses.reduce((sum, e) => sum + (parseFloat(e.debit) || 0), 0);
-                const totalCredit = expenses.reduce((sum, e) => sum + (parseFloat(e.credit) || 0), 0);
-                
+                const calculations = useMemo(() => {
                 const openingBalance = expenses
                     .filter(e => e.description === 'Opening Balance (Salary)')
                     .reduce((sum, e) => sum + (parseFloat(e.credit) || 0), 0);
-                
-                const otherCredits = totalCredit - openingBalance;
-                const savedAmount = totalCredit - totalDebit;
+
+                const totalDebit = expenses
+                    .filter(e => e.description !== 'Opening Balance (Salary)')
+                    .reduce((sum, e) => sum + (parseFloat(e.debit) || 0), 0);
+
+                const totalCredit = expenses
+                    .filter(e => e.description !== 'Opening Balance (Salary)')
+                    .reduce((sum, e) => sum + (parseFloat(e.credit) || 0), 0);
+
+                const currentBalance =
+                    openingBalance + totalCredit - totalDebit;
 
                 const expenseByDescription = expenses.reduce((acc, e) => {
-                    if (e.debit && e.description && !e.meal) {
-                        acc[e.description] = (acc[e.description] || 0) + parseFloat(e.debit);
+                    if (
+                    e.debit &&
+                    e.description &&
+                    e.description !== 'Opening Balance (Salary)' &&
+                    !e.meal
+                    ) {
+                    acc[e.description] =
+                        (acc[e.description] || 0) + parseFloat(e.debit);
                     }
                     return acc;
                 }, {});
@@ -317,22 +328,22 @@ const db = firebase.firestore();
                 const lunchTotal = expenses
                     .filter(e => e.meal === 'Lunch' && e.debit)
                     .reduce((sum, e) => sum + parseFloat(e.debit), 0);
-                
+
                 const teaTotal = expenses
                     .filter(e => e.meal === 'Tea' && e.debit)
                     .reduce((sum, e) => sum + parseFloat(e.debit), 0);
 
                 return {
+                    openingBalance,
                     totalDebit,
                     totalCredit,
-                    openingBalance,
-                    otherCredits,
-                    savedAmount,
+                    currentBalance,
                     expenseByDescription,
                     lunchTotal,
                     teaTotal
                 };
-            }, [expenses]);
+                }, [expenses]);
+
 
             const getSyncStatusColor = () => {
                 switch(syncStatus) {
@@ -579,9 +590,9 @@ const db = firebase.firestore();
                             <div className="bg-white rounded-lg shadow-lg p-6">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-sm text-gray-600 mb-1">Saved Amount</p>
+                                        <p className="text-sm text-gray-600 mb-1">Current Balance</p>
                                         <p className={`text-2xl font-bold ${calculations.savedAmount >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
-                                            ₹{calculations.savedAmount.toLocaleString()}
+                                            ₹{calculations.currentBalance.toLocaleString()}
                                         </p>
                                     </div>
                                     <div className={`w-10 h-10 rounded-full ${calculations.savedAmount >= 0 ? 'bg-blue-100' : 'bg-red-100'} flex items-center justify-center`}>
