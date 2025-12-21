@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <!-- Firebase -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <head>
@@ -19,15 +20,15 @@
     <div id="root"></div>
 
     <script type="text/babel">
-const firebaseConfig = {
-  apiKey: "AIzaSyAoofQz9iOxLDl9Xa_f_UbzZCkshNCjUW4",
-  authDomain: "expense-report-826a7.firebaseapp.com",
-  projectId: "expense-report-826a7",
-  storageBucket: "expense-report-826a7.firebasestorage.app",
-  messagingSenderId: "238599367354",
-  appId: "1:238599367354:web:dd12a7dc2c6e70aea0f083",
-  measurementId: "G-QW3LYEC24T"
-};
+    const firebaseConfig = {
+    apiKey: "AIzaSyAoofQz9iOxLDl9Xa_f_UbzZCkshNCjUW4",
+    authDomain: "expense-report-826a7.firebaseapp.com",
+    projectId: "expense-report-826a7",
+    storageBucket: "expense-report-826a7.firebasestorage.app",
+    messagingSenderId: "238599367354",
+    appId: "1:238599367354:web:dd12a7dc2c6e70aea0f083",
+    measurementId: "G-QW3LYEC24T"
+    };
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
@@ -86,6 +87,58 @@ const db = firebase.firestore();
             const [syncStatus, setSyncStatus] = useState('synced'); // synced, syncing, error
             const FIXED_USER_ID = "rakesh-expense-tracker";
             const [userId] = useState(FIXED_USER_ID);
+
+            const exportToExcel = () => {
+                const worksheetData = [
+                    ["Date", "Description", "Meal", "Debit", "Credit"],
+                    ...expenses.map(e => [
+                    e.date,
+                    e.description,
+                    e.meal,
+                    e.debit,
+                    e.credit
+                    ])
+                ];
+
+                const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+                const workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, worksheet, "Expenses");
+
+                XLSX.writeFile(
+                    workbook,
+                    `Expense_${month}_${year}.xlsx`
+                );
+                };
+
+                const importFromExcel = (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+
+            reader.onload = (e) => {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: "array" });
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+                const importedExpenses = rows.slice(1).map((row, index) => ({
+                id: index + 1,
+                date: row[0] || "",
+                description: row[1] || "",
+                meal: row[2] || "",
+                debit: row[3] || "",
+                credit: row[4] || "",
+                isCustom: true
+                }));
+
+                setExpenses(importedExpenses);
+            };
+
+            reader.readAsArrayBuffer(file);
+            };
+
+
             
             const expenseOptions = [
                 'Ravi Fast Food',
@@ -304,24 +357,46 @@ const db = firebase.firestore();
                     <div className="max-w-7xl mx-auto">
                         <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
                             <div className="flex items-center justify-between mb-4">
-                                <div className="flex items-center gap-3">
-                                    <Calendar />
-                                    <h1 className="text-3xl font-bold text-gray-800">Monthly Expense Sheet</h1>
-                                </div>
-                                <div className="flex items-center gap-4">
-                                    <div className={`flex items-center gap-2 ${getSyncStatusColor()}`}>
-                                        <Cloud />
-                                        <span className="text-sm">{getSyncStatusText()}</span>
-                                    </div>
-                                    <button
-                                        onClick={addExpense}
-                                        className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition"
-                                    >
-                                        <Plus />
-                                        Add Row
-                                    </button>
-                                </div>
+                            <div className="flex items-center gap-3">
+                                <Calendar />
+                                <h1 className="text-3xl font-bold text-gray-800">
+                                Monthly Expense Sheet
+                                </h1>
                             </div>
+
+                            <div className="flex items-center gap-3 flex-wrap">
+                                <div className={`flex items-center gap-2 ${getSyncStatusColor()}`}>
+                                <Cloud />
+                                <span className="text-sm">{getSyncStatusText()}</span>
+                                </div>
+
+                                <button
+                                onClick={addExpense}
+                                className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition"
+                                >
+                                <Plus />
+                                Add Row
+                                </button>
+
+                                <button
+                                onClick={exportToExcel}
+                                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition"
+                                >
+                                Export Excel
+                                </button>
+
+                                <label className="bg-blue-600 text-white px-4 py-2 rounded-lg cursor-pointer hover:bg-blue-700 transition">
+                                Import Excel
+                                <input
+                                    type="file"
+                                    accept=".xlsx,.xls"
+                                    onChange={importFromExcel}
+                                    className="hidden"
+                                />
+                                </label>
+                            </div>
+                            </div>
+
                             
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                 <div>
