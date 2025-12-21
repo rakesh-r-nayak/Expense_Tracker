@@ -451,6 +451,8 @@
             .filter((e) => e.meal === "Tea" && e.debit)
             .reduce((sum, e) => sum + parseFloat(e.debit), 0);
 
+          const otherCredits = totalCredit; // add this line
+
           return {
             openingBalance,
             totalDebit,
@@ -459,6 +461,7 @@
             expenseByDescription,
             lunchTotal,
             teaTotal,
+            otherCredits, // now defined
           };
         }, [expenses]);
 
