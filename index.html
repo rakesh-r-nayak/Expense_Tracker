@@ -85,7 +85,7 @@ const db = firebase.firestore();
             const [currentBalance, setCurrentBalance] = useState('50000');
             const [syncStatus, setSyncStatus] = useState('synced'); // synced, syncing, error
             const FIXED_USER_ID = "rakesh-expense-tracker";
-            const [userId] = useState<string>(FIXED_USER_ID);
+            const [userId] = useState(FIXED_USER_ID);
             
             const expenseOptions = [
                 'Ravi Fast Food',
