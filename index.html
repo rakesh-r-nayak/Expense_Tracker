@@ -407,6 +407,8 @@
         };
 
         const calculations = useMemo(() => {
+          const openingBalance = parseFloat(startingBalance) || 0;
+
           const totalDebit = expenses.reduce(
             (sum, e) => sum + (parseFloat(e.debit) || 0),
             0
@@ -417,12 +419,35 @@
             0
           );
 
-          const currentBalance =
-            (parseFloat(startingBalance) || 0) + totalCredit - totalDebit;
+          const lunchTotal = expenses.reduce(
+            (sum, e) =>
+              e.meal === "Lunch" ? sum + (parseFloat(e.debit) || 0) : sum,
+            0
+          );
+
+          const teaTotal = expenses.reduce(
+            (sum, e) =>
+              e.meal === "Tea" ? sum + (parseFloat(e.debit) || 0) : sum,
+            0
+          );
+
+          const expenseByDescription = expenses.reduce((acc, e) => {
+            if (!e.description || e.meal) return acc;
+            acc[e.description] =
+              (acc[e.description] || 0) + (parseFloat(e.debit) || 0);
+            return acc;
+          }, {});
+
+          const currentBalance = openingBalance + totalCredit - totalDebit;
 
           return {
+            openingBalance,
             totalDebit,
             totalCredit,
+            otherCredits: totalCredit,
+            lunchTotal,
+            teaTotal,
+            expenseByDescription,
             currentBalance,
           };
         }, [expenses, startingBalance]);
