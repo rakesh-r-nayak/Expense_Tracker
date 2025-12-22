@@ -129,7 +129,7 @@
       const MonthlyExpenseSheet = () => {
         const [month, setMonth] = useState("January");
         const [year, setYear] = useState("2025");
-        const [currentBalance, setCurrentBalance] = useState("50000");
+        const [startingBalance, setStartingBalance] = useState("50000");
         const [syncStatus, setSyncStatus] = useState("synced"); // synced, syncing, error
         const FIXED_USER_ID = "rakesh-expense-tracker";
         const [userId] = useState(FIXED_USER_ID);
@@ -198,15 +198,6 @@
         const mealOptions = ["", "Lunch", "Tea"];
 
         const [expenses, setExpenses] = useState([
-          {
-            id: 1,
-            date: "2025-01-01",
-            description: "Opening Balance (Salary)",
-            debit: "",
-            credit: "50000",
-            meal: "",
-            isCustom: true,
-          },
           {
             id: 2,
             date: "2025-01-01",
@@ -329,7 +320,7 @@
 
               setMonth(data.month || "January");
               setYear(data.year || "2025");
-              setCurrentBalance(data.currentBalance || "0");
+              setStartingBalance(data.startingBalance || "0");
               setExpenses(data.expenses || []);
             }
           } catch (error) {
@@ -350,7 +341,7 @@
             const dataToSync = {
               month,
               year,
-              currentBalance,
+              startingBalance,
               expenses,
               userId,
               lastUpdated: new Date().toISOString(),
@@ -358,11 +349,11 @@
 
             const timeoutId = setTimeout(() => {
               syncToCloud(dataToSync);
-            }, 1000); // Debounce for 1 second
+            }, 1000);
 
             return () => clearTimeout(timeoutId);
           }
-        }, [month, year, currentBalance, expenses, userId]);
+        }, [month, year, startingBalance, expenses, userId]);
 
         // Periodic sync check (every 30 seconds)
         useEffect(() => {
@@ -416,54 +407,25 @@
         };
 
         const calculations = useMemo(() => {
-          const openingBalance = expenses
-            .filter((e) => e.description === "Opening Balance (Salary)")
-            .reduce((sum, e) => sum + (parseFloat(e.credit) || 0), 0);
+          const totalDebit = expenses.reduce(
+            (sum, e) => sum + (parseFloat(e.debit) || 0),
+            0
+          );
 
-          const totalDebit = expenses
-            .filter((e) => e.description !== "Opening Balance (Salary)")
-            .reduce((sum, e) => sum + (parseFloat(e.debit) || 0), 0);
+          const totalCredit = expenses.reduce(
+            (sum, e) => sum + (parseFloat(e.credit) || 0),
+            0
+          );
 
-          const totalCredit = expenses
-            .filter((e) => e.description !== "Opening Balance (Salary)")
-            .reduce((sum, e) => sum + (parseFloat(e.credit) || 0), 0);
-
-          const currentBalance = openingBalance + totalCredit - totalDebit;
-
-          const expenseByDescription = expenses.reduce((acc, e) => {
-            if (
-              e.debit &&
-              e.description &&
-              e.description !== "Opening Balance (Salary)" &&
-              !e.meal
-            ) {
-              acc[e.description] =
-                (acc[e.description] || 0) + parseFloat(e.debit);
-            }
-            return acc;
-          }, {});
-
-          const lunchTotal = expenses
-            .filter((e) => e.meal === "Lunch" && e.debit)
-            .reduce((sum, e) => sum + parseFloat(e.debit), 0);
-
-          const teaTotal = expenses
-            .filter((e) => e.meal === "Tea" && e.debit)
-            .reduce((sum, e) => sum + parseFloat(e.debit), 0);
-
-          const otherCredits = totalCredit; // add this line
+          const currentBalance =
+            (parseFloat(startingBalance) || 0) + totalCredit - totalDebit;
 
           return {
-            openingBalance,
             totalDebit,
             totalCredit,
             currentBalance,
-            expenseByDescription,
-            lunchTotal,
-            teaTotal,
-            otherCredits, // now defined
           };
-        }, [expenses]);
+        }, [expenses, startingBalance]);
 
         const getSyncStatusColor = () => {
           switch (syncStatus) {
@@ -563,13 +525,13 @@
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Current Balance (₹)
+                      Starting Balance (₹)
                     </label>
                     <input
                       type="number"
-                      value={currentBalance}
-                      onChange={(e) => setCurrentBalance(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      value={startingBalance}
+                      onChange={(e) => setStartingBalance(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                     />
                   </div>
                 </div>
