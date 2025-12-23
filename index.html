@@ -406,7 +406,7 @@
           const openingBalance = Number(startingBalance) || 0;
 
           const totalDebit = expenses.reduce(
-            (sum, e) => sum + (Number(e.debit) || 0),
+            (sum, e) => sum + (Number(e.debit) || 0) - (Number(e.credit) || 0),
             0
           );
 
@@ -415,11 +415,7 @@
             0
           );
 
-          let runningBalance = openingBalance;
-          expenses.forEach((e) => {
-            runningBalance += Number(e.credit || 0);
-            runningBalance -= Number(e.debit || 0);
-          });
+          let runningBalance = openingBalance - totalDebit;
 
           // Calculate lunch/tea totals
           const lunchTotal = expenses
