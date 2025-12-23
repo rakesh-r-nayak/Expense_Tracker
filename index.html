@@ -423,17 +423,41 @@
           );
 
           let runningBalance = openingBalance;
-
           expenses.forEach((e) => {
             runningBalance += Number(e.credit || 0);
             runningBalance -= Number(e.debit || 0);
           });
+
+          // Calculate lunch/tea totals
+          const lunchTotal = expenses
+            .filter((e) => e.meal === "Lunch")
+            .reduce((sum, e) => sum + (Number(e.debit) || 0), 0);
+
+          const teaTotal = expenses
+            .filter((e) => e.meal === "Tea")
+            .reduce((sum, e) => sum + (Number(e.debit) || 0), 0);
+
+          // Expense breakdown by description excluding meals
+          const expenseByDescription = {};
+          expenses.forEach((e) => {
+            if (!["Lunch", "Tea"].includes(e.meal)) {
+              const key = e.description || "Other";
+              expenseByDescription[key] =
+                (expenseByDescription[key] || 0) + (Number(e.debit) || 0);
+            }
+          });
+
+          const otherCredits = totalCredit;
 
           return {
             openingBalance,
             totalDebit,
             totalCredit,
             currentBalance: runningBalance,
+            lunchTotal,
+            teaTotal,
+            expenseByDescription,
+            otherCredits,
           };
         }, [expenses, startingBalance]);
 
