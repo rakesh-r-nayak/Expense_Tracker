@@ -381,8 +381,8 @@
         }, []);
 
         const updateExpense = (id, field, value) => {
-          setExpenses(
-            expenses.map((e) => {
+          setExpenses((prevExpenses) =>
+            prevExpenses.map((e) => {
               if (e.id === id) {
                 // Debit: allow any input, clear credit
                 if (field === "debit") {
