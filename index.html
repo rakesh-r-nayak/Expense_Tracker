@@ -129,7 +129,7 @@
       const MonthlyExpenseSheet = () => {
         const [month, setMonth] = useState("January");
         const [year, setYear] = useState("2025");
-        const [startingBalance, setStartingBalance] = useState("50000");
+        const [startingBalance, setStartingBalance] = useState(50000);
         const [syncStatus, setSyncStatus] = useState("synced"); // synced, syncing, error
         const FIXED_USER_ID = "rakesh-expense-tracker";
         const [userId] = useState(FIXED_USER_ID);
@@ -166,8 +166,8 @@
             const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
             const importedExpenses = rows.slice(1).map((row, index) => ({
-              id: index + 1,
-              date: row[0] || "",
+              id: maxId + index + 1,
+              date: row[0] ? XLSX.SSF.format("yyyy-mm-dd", row[0]) : "",
               description: row[1] || "",
               meal: row[2] || "",
               debit: row[3] || "",
@@ -355,15 +355,9 @@
           }
         }, [month, year, startingBalance, expenses, userId]);
 
-        // Periodic sync check (every 30 seconds)
+        // Load data once when component mounts
         useEffect(() => {
-          const interval = setInterval(() => {
-            if (userId) {
-              loadFromCloud();
-            }
-          }, 30000);
-
-          return () => clearInterval(interval);
+          if (userId) loadFromCloud();
         }, [userId]);
 
         const addExpense = () => {
@@ -382,23 +376,25 @@
           ]);
         };
 
-        const deleteExpense = (id) => {
-          setExpenses(expenses.filter((e) => e.id !== id));
-        };
+        const deleteExpense = React.useCallback((id) => {
+          setExpenses((prev) => prev.filter((e) => e.id !== id));
+        }, []);
 
         const updateExpense = (id, field, value) => {
           setExpenses(
             expenses.map((e) => {
               if (e.id === id) {
-                if (field === "description") {
-                  if (value === "Other (Custom)") {
-                    return { ...e, description: "", isCustom: true };
-                  }
-                  if (e.isCustom) {
-                    return { ...e, description: value };
-                  }
-                  return { ...e, description: value, isCustom: false };
+                // ✅ Debit entered → clear Credit
+                if (field === "debit") {
+                  return { ...e, debit: value, credit: "" };
                 }
+
+                // ✅ Credit entered → clear Debit
+                if (field === "credit") {
+                  return { ...e, credit: value, debit: "" };
+                }
+
+                // ✅ All other fields
                 return { ...e, [field]: value };
               }
               return e;
@@ -555,7 +551,9 @@
                     <input
                       type="number"
                       value={startingBalance}
-                      onChange={(e) => setStartingBalance(e.target.value)}
+                      onChange={(e) =>
+                        setStartingBalance(Number(e.target.value))
+                      }
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                     />
                   </div>
@@ -699,6 +697,7 @@
                           <td className="px-4 py-3">
                             <input
                               type="number"
+                              min="0" // 👈 ADD THIS LINE
                               value={expense.debit}
                               onChange={(e) =>
                                 updateExpense(
@@ -708,12 +707,13 @@
                                 )
                               }
                               placeholder="0"
-                              className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                              className="w-full px-2 py-1 border border-gray-300 rounded"
                             />
                           </td>
                           <td className="px-4 py-3">
                             <input
                               type="number"
+                              min="0" // 👈 ADD THIS LINE
                               value={expense.credit}
                               onChange={(e) =>
                                 updateExpense(
@@ -723,7 +723,7 @@
                                 )
                               }
                               placeholder="0"
-                              className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                              className="w-full px-2 py-1 border border-gray-300 rounded"
                             />
                           </td>
                           <td className="px-4 py-3 text-center">
@@ -895,7 +895,8 @@
         );
       };
 
-      ReactDOM.render(<MonthlyExpenseSheet />, document.getElementById("root"));
+      const root = ReactDOM.createRoot(document.getElementById("root"));
+      root.render(<MonthlyExpenseSheet />);
     </script>
   </body>
 </html>
