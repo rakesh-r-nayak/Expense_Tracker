@@ -1,913 +1,251 @@
-<!DOCTYPE html>
-<html lang="en">
-  <!-- Firebase -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Monthly Expense Tracker</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-      body {
-        margin: 0;
-        padding: 0;
-        font-family: system-ui, -apple-system, sans-serif;
+<script type="text/babel">
+  const firebaseConfig = {
+    apiKey: "AIzaSyAoofQz9iOxLDl9Xa_f_UbzZCkshNCjUW4",
+    authDomain: "expense-report-826a7.firebaseapp.com",
+    projectId: "expense-report-826a7",
+    storageBucket: "expense-report-826a7.firebasestorage.app",
+    messagingSenderId: "238599367354",
+    appId: "1:238599367354:web:dd12a7dc2c6e70aea0f083",
+    measurementId: "G-QW3LYEC24T",
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  const { useState, useEffect, useMemo } = React;
+
+  // Icons
+  const Plus = () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <line x1="12" y1="5" x2="12" y2="19"></line>
+      <line x1="5" y1="12" x2="19" y2="12"></line>
+    </svg>
+  );
+
+  const Trash2 = () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <polyline points="3 6 5 6 21 6"></polyline>
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+      <line x1="10" y1="11" x2="10" y2="17"></line>
+      <line x1="14" y1="11" x2="14" y2="17"></line>
+    </svg>
+  );
+
+  const Cloud = () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path>
+    </svg>
+  );
+
+  const MonthlyExpenseSheet = () => {
+    const [month, setMonth] = useState("January");
+    const [year, setYear] = useState("2025");
+    const [startingBalance, setStartingBalance] = useState(50000);
+    const [expenses, setExpenses] = useState([]); // empty initial state
+    const [syncStatus, setSyncStatus] = useState("synced");
+    const [loading, setLoading] = useState(true); // loading flag
+    const FIXED_USER_ID = "rakesh-expense-tracker";
+    const [userId] = useState(FIXED_USER_ID);
+
+    const expenseOptions = [
+      "Ravi Fast Food",
+      "E Trade",
+      "Fuel",
+      "Udayavani Canteen",
+      "Hotel Manohar Bhavan",
+      "Manipal Lunch Home",
+      "Vinayak Store",
+      "Darsh Fast Food",
+      "Anand Bhavan",
+      "Medical Store",
+      "Other (Custom)",
+    ];
+
+    const mealOptions = ["", "Lunch", "Tea"];
+
+    // Load data from cloud
+    const loadFromCloud = async () => {
+      if (!userId) return;
+      try {
+        const doc = await db.collection("expenseTracker").doc(userId).get();
+        if (doc.exists) {
+          const data = doc.data();
+          setMonth(data.month || "January");
+          setYear(data.year || "2025");
+          setStartingBalance(data.startingBalance || 0);
+          setExpenses(data.expenses || []);
+        }
+      } catch (error) {
+        console.error("Firebase load error:", error);
+      } finally {
+        setLoading(false);
       }
-    </style>
-  </head>
-  <body>
-    <div id="root"></div>
+    };
 
-    <script type="text/babel">
-      const firebaseConfig = {
-        apiKey: "AIzaSyAoofQz9iOxLDl9Xa_f_UbzZCkshNCjUW4",
-        authDomain: "expense-report-826a7.firebaseapp.com",
-        projectId: "expense-report-826a7",
-        storageBucket: "expense-report-826a7.firebasestorage.app",
-        messagingSenderId: "238599367354",
-        appId: "1:238599367354:web:dd12a7dc2c6e70aea0f083",
-        measurementId: "G-QW3LYEC24T",
+    useEffect(() => {
+      loadFromCloud();
+    }, [userId]);
+
+    // Auto-sync to cloud
+    useEffect(() => {
+      if (!userId) return;
+      const dataToSync = { month, year, startingBalance, expenses, userId, lastUpdated: new Date().toISOString() };
+      const timeoutId = setTimeout(() => {
+        setSyncStatus("syncing");
+        db.collection("expenseTracker").doc(userId).set(dataToSync)
+          .then(() => setSyncStatus("synced"))
+          .catch(() => setSyncStatus("error"));
+      }, 1000);
+      return () => clearTimeout(timeoutId);
+    }, [month, year, startingBalance, expenses, userId]);
+
+    // Add new expense
+    const addExpense = () => {
+      const newId = Math.max(...expenses.map((e) => e.id), 0) + 1;
+      setExpenses([...expenses, { id: newId, date: new Date().toISOString().split("T")[0], description: "", debit: "", credit: "", meal: "", isCustom: false }]);
+    };
+
+    // Delete single expense
+    const deleteExpense = (id) => {
+      const updatedExpenses = expenses.filter((e) => e.id !== id);
+      setExpenses(updatedExpenses);
+      if (userId) {
+        db.collection("expenseTracker").doc(userId).set({ month, year, startingBalance, expenses: updatedExpenses, userId, lastUpdated: new Date().toISOString() });
+      }
+    };
+
+    // Clear all expenses
+    const clearAllExpenses = () => {
+      if (!confirm("Are you sure you want to delete all expenses?")) return;
+      setExpenses([]);
+      if (userId) {
+        db.collection("expenseTracker").doc(userId).set({ month, year, startingBalance, expenses: [], userId, lastUpdated: new Date().toISOString() });
+      }
+    };
+
+    // Update expense
+    const updateExpense = (id, field, value) => {
+      setExpenses((prevExpenses) =>
+        prevExpenses.map((e) => {
+          if (e.id === id) {
+            if (field === "debit") return { ...e, debit: value, credit: "" };
+            if (field === "credit") return { ...e, credit: value, debit: "" };
+            return { ...e, [field]: value };
+          }
+          return e;
+        })
+      );
+    };
+
+    // Calculations
+    const calculations = useMemo(() => {
+      const openingBalance = Number(startingBalance) || 0;
+      const totalDebit = expenses.reduce((sum, e) => sum + (Number(e.debit) || 0), 0);
+      const totalCredit = expenses.reduce((sum, e) => sum + (Number(e.credit) || 0), 0);
+      let runningBalance = openingBalance;
+      expenses.forEach((e) => { runningBalance += Number(e.credit || 0); runningBalance -= Number(e.debit || 0); });
+
+      return {
+        openingBalance,
+        totalDebit,
+        totalCredit,
+        currentBalance: runningBalance,
+        lunchTotal: expenses.filter(e => e.meal === "Lunch").reduce((sum, e) => sum + (Number(e.debit) || 0), 0),
+        teaTotal: expenses.filter(e => e.meal === "Tea").reduce((sum, e) => sum + (Number(e.debit) || 0), 0),
+        expenseByDescription: expenses.reduce((acc, e) => {
+          if (e.description && !mealOptions.includes(e.meal)) acc[e.description] = (acc[e.description] || 0) + (Number(e.debit) || 0);
+          return acc;
+        }, {})
       };
+    }, [expenses, startingBalance]);
 
-      firebase.initializeApp(firebaseConfig);
-      const db = firebase.firestore();
-      const { useState, useMemo, useEffect } = React;
+    const getSyncStatusColor = () => {
+      switch(syncStatus) {
+        case "syncing": return "text-yellow-600";
+        case "synced": return "text-green-600";
+        case "error": return "text-red-600";
+        default: return "text-gray-600";
+      }
+    };
 
-      // Lucide React Icons as inline SVG components
-      const Plus = () => (
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <line x1="12" y1="5" x2="12" y2="19"></line>
-          <line x1="5" y1="12" x2="19" y2="12"></line>
-        </svg>
-      );
+    const getSyncStatusText = () => {
+      switch(syncStatus) {
+        case "syncing": return "Syncing...";
+        case "synced": return "All changes saved";
+        case "error": return "Sync error";
+        default: return "Local storage";
+      }
+    };
 
-      const Trash2 = () => (
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <polyline points="3 6 5 6 21 6"></polyline>
-          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-          <line x1="10" y1="11" x2="10" y2="17"></line>
-          <line x1="14" y1="11" x2="14" y2="17"></line>
-        </svg>
-      );
+    if (loading) return <p className="text-center text-gray-600">Loading...</p>;
 
-      const TrendingUp = () => (
-        <svg
-          width="40"
-          height="40"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
-          <polyline points="17 6 23 6 23 12"></polyline>
-        </svg>
-      );
-
-      const TrendingDown = () => (
-        <svg
-          width="40"
-          height="40"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline>
-          <polyline points="17 18 23 18 23 12"></polyline>
-        </svg>
-      );
-
-      const Calendar = () => (
-        <svg
-          width="32"
-          height="32"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-          <line x1="16" y1="2" x2="16" y2="6"></line>
-          <line x1="8" y1="2" x2="8" y2="6"></line>
-          <line x1="3" y1="10" x2="21" y2="10"></line>
-        </svg>
-      );
-
-      const Cloud = () => (
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path>
-        </svg>
-      );
-
-      const MonthlyExpenseSheet = () => {
-        const [month, setMonth] = useState("January");
-        const [year, setYear] = useState("2025");
-        const [startingBalance, setStartingBalance] = useState(50000);
-        const [syncStatus, setSyncStatus] = useState("synced"); // synced, syncing, error
-        const FIXED_USER_ID = "rakesh-expense-tracker";
-        const [userId] = useState(FIXED_USER_ID);
-
-        const exportToExcel = () => {
-          const worksheetData = [
-            ["Date", "Description", "Meal", "Debit", "Credit"],
-            ...expenses.map((e) => [
-              e.date,
-              e.description,
-              e.meal,
-              e.debit,
-              e.credit,
-            ]),
-          ];
-
-          const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
-          const workbook = XLSX.utils.book_new();
-          XLSX.utils.book_append_sheet(workbook, worksheet, "Expenses");
-
-          XLSX.writeFile(workbook, `Expense_${month}_${year}.xlsx`);
-        };
-
-        const importFromExcel = (event) => {
-          const file = event.target.files[0];
-          if (!file) return;
-
-          const reader = new FileReader();
-
-          reader.onload = (e) => {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: "array" });
-            const sheet = workbook.Sheets[workbook.SheetNames[0]];
-            const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-
-            const importedExpenses = rows.slice(1).map((row, index) => ({
-              id: maxId + index + 1,
-              date: row[0] ? XLSX.SSF.format("yyyy-mm-dd", row[0]) : "",
-              description: row[1] || "",
-              meal: row[2] || "",
-              debit: row[3] || "",
-              credit: row[4] || "",
-              isCustom: true,
-            }));
-
-            setExpenses(importedExpenses);
-          };
-
-          reader.readAsArrayBuffer(file);
-        };
-
-        const expenseOptions = [
-          "Ravi Fast Food",
-          "E Trade",
-          "Fuel",
-          "Udayavani Canteen",
-          "Hotel Manohar Bhavan",
-          "Manipal Lunch Home",
-          "Vinayak Store",
-          "Darsh Fast Food",
-          "Anand Bhavan",
-          "Medical Store",
-          "Other (Custom)",
-        ];
-
-        const mealOptions = ["", "Lunch", "Tea"];
-
-        const [expenses, setExpenses] = useState([
-          {
-            id: 2,
-            date: "2025-01-01",
-            description: "Vinayak Store",
-            debit: "2500",
-            credit: "",
-            meal: "",
-            isCustom: false,
-          },
-          {
-            id: 3,
-            date: "2025-01-01",
-            description: "Fuel",
-            debit: "1200",
-            credit: "",
-            meal: "",
-            isCustom: false,
-          },
-          {
-            id: 4,
-            date: "2025-01-02",
-            description: "Electricity Bill",
-            debit: "1800",
-            credit: "",
-            meal: "",
-            isCustom: true,
-          },
-          {
-            id: 5,
-            date: "2025-01-03",
-            description: "Ravi Fast Food",
-            debit: "850",
-            credit: "",
-            meal: "Lunch",
-            isCustom: false,
-          },
-          {
-            id: 6,
-            date: "2025-01-03",
-            description: "Movie Tickets",
-            debit: "600",
-            credit: "",
-            meal: "",
-            isCustom: true,
-          },
-          {
-            id: 7,
-            date: "2025-01-05",
-            description: "E Trade",
-            debit: "3200",
-            credit: "",
-            meal: "",
-            isCustom: false,
-          },
-          {
-            id: 8,
-            date: "2025-01-07",
-            description: "Medical Store",
-            debit: "1500",
-            credit: "",
-            meal: "",
-            isCustom: false,
-          },
-          {
-            id: 9,
-            date: "2025-01-10",
-            description: "Rent",
-            debit: "15000",
-            credit: "",
-            meal: "",
-            isCustom: true,
-          },
-          {
-            id: 10,
-            date: "2025-01-12",
-            description: "Udayavani Canteen",
-            debit: "1800",
-            credit: "",
-            meal: "Tea",
-            isCustom: false,
-          },
-        ]);
-
-        // Generate or get user ID
-        /**
-                  useEffect(() => {
-                      let id = localStorage.getItem('expenseTrackerUserId');
-                      if (!id) {
-                          id = 'user_' + Math.random().toString(36).substr(2, 9) + Date.now();
-                          localStorage.setItem('expenseTrackerUserId', id);
-                      }
-                      setUserId(id);
-                  }, []);
-                  **/
-
-        // Cloud sync functions using a simple REST API (JSONBin.io style)
-        const syncToCloud = async (data) => {
-          if (!userId) return;
-
-          try {
-            setSyncStatus("syncing");
-
-            await db.collection("expenseTracker").doc(userId).set(data);
-
-            setSyncStatus("synced");
-          } catch (error) {
-            console.error("Firebase sync error:", error);
-            setSyncStatus("error");
-          }
-        };
-
-        const loadFromCloud = async () => {
-          if (!userId) return;
-
-          try {
-            const doc = await db.collection("expenseTracker").doc(userId).get();
-
-            if (doc.exists) {
-              const data = doc.data();
-
-              setMonth(data.month || "January");
-              setYear(data.year || "2025");
-              setStartingBalance(data.startingBalance || "0");
-              setExpenses(data.expenses || []);
-            }
-          } catch (error) {
-            console.error("Firebase load error:", error);
-          }
-        };
-
-        // Load data on mount
-        useEffect(() => {
-          if (userId) {
-            loadFromCloud();
-          }
-        }, [userId]);
-
-        // Auto-sync whenever data changes
-        useEffect(() => {
-          if (userId) {
-            const dataToSync = {
-              month,
-              year,
-              startingBalance,
-              expenses,
-              userId,
-              lastUpdated: new Date().toISOString(),
-            };
-
-            const timeoutId = setTimeout(() => {
-              syncToCloud(dataToSync);
-            }, 1000);
-
-            return () => clearTimeout(timeoutId);
-          }
-        }, [month, year, startingBalance, expenses, userId]);
-
-        // Load data once when component mounts
-        useEffect(() => {
-          if (userId) loadFromCloud();
-        }, [userId]);
-
-        const addExpense = () => {
-          const newId = Math.max(...expenses.map((e) => e.id), 0) + 1;
-          setExpenses([
-            ...expenses,
-            {
-              id: newId,
-              date: new Date().toISOString().split("T")[0],
-              description: "",
-              debit: "",
-              credit: "",
-              meal: "",
-              isCustom: false,
-            },
-          ]);
-        };
-
-        const deleteExpense = React.useCallback((id) => {
-          setExpenses((prev) => prev.filter((e) => e.id !== id));
-        }, []);
-
-        const updateExpense = (id, field, value) => {
-          setExpenses((prevExpenses) =>
-            prevExpenses.map((e) => {
-              if (e.id === id) {
-                // Debit: allow any input, clear credit
-                if (field === "debit") {
-                  return { ...e, debit: value, credit: "" }; // keep value as string
-                }
-
-                // Credit: allow any input, clear debit
-                if (field === "credit") {
-                  return { ...e, credit: value, debit: "" };
-                }
-
-                // Other fields
-                return { ...e, [field]: value };
-              }
-              return e;
-            })
-          );
-        };
-
-        const calculations = useMemo(() => {
-          const openingBalance = Number(startingBalance) || 0;
-
-          const totalDebit = expenses.reduce(
-            (sum, e) => sum + (Number(e.debit) || 0),
-            0
-          );
-
-          const totalCredit = expenses.reduce(
-            (sum, e) => sum + (Number(e.credit) || 0),
-            0
-          );
-
-          let runningBalance = openingBalance;
-          expenses.forEach((e) => {
-            runningBalance += Number(e.credit || 0);
-            runningBalance -= Number(e.debit || 0);
-          });
-
-          // Calculate lunch/tea totals
-          const lunchTotal = expenses
-            .filter((e) => e.meal === "Lunch")
-            .reduce((sum, e) => sum + (Number(e.debit) || 0), 0);
-
-          const teaTotal = expenses
-            .filter((e) => e.meal === "Tea")
-            .reduce((sum, e) => sum + (Number(e.debit) || 0), 0);
-
-          // Expense breakdown by description excluding meals
-          const expenseByDescription = {};
-          expenses.forEach((e) => {
-            if (!["Lunch", "Tea"].includes(e.meal)) {
-              const key = e.description || "Other";
-              expenseByDescription[key] =
-                (expenseByDescription[key] || 0) + (Number(e.debit) || 0);
-            }
-          });
-
-          const otherCredits = totalCredit;
-
-          return {
-            openingBalance,
-            totalDebit,
-            totalCredit,
-            currentBalance: runningBalance,
-            lunchTotal,
-            teaTotal,
-            expenseByDescription,
-            otherCredits,
-          };
-        }, [expenses, startingBalance]);
-
-        const getSyncStatusColor = () => {
-          switch (syncStatus) {
-            case "syncing":
-              return "text-yellow-600";
-            case "synced":
-              return "text-green-600";
-            case "error":
-              return "text-red-600";
-            default:
-              return "text-gray-600";
-          }
-        };
-
-        const getSyncStatusText = () => {
-          switch (syncStatus) {
-            case "syncing":
-              return "Syncing...";
-            case "synced":
-              return "All changes saved";
-            case "error":
-              return "Sync error";
-            default:
-              return "Local storage";
-          }
-        };
-
-        return (
-          <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
-            <div className="max-w-7xl mx-auto">
-              <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <Calendar />
-                    <h1 className="text-3xl font-bold text-gray-800">
-                      Monthly Expense Sheet
-                    </h1>
-                  </div>
-
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <div
-                      className={`flex items-center gap-2 ${getSyncStatusColor()}`}
-                    >
-                      <Cloud />
-                      <span className="text-sm">{getSyncStatusText()}</span>
-                    </div>
-
-                    <button
-                      onClick={addExpense}
-                      className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition"
-                    >
-                      <Plus />
-                      Add Row
-                    </button>
-
-                    <button
-                      onClick={exportToExcel}
-                      className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition"
-                    >
-                      Export Excel
-                    </button>
-
-                    <label className="bg-blue-600 text-white px-4 py-2 rounded-lg cursor-pointer hover:bg-blue-700 transition">
-                      Import Excel
-                      <input
-                        type="file"
-                        accept=".xlsx,.xls"
-                        onChange={importFromExcel}
-                        className="hidden"
-                      />
-                    </label>
-                  </div>
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h1 className="text-3xl font-bold text-gray-800">Monthly Expense Sheet</h1>
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className={`flex items-center gap-2 ${getSyncStatusColor()}`}>
+                  <Cloud />
+                  <span className="text-sm">{getSyncStatusText()}</span>
                 </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Month
-                    </label>
-                    <input
-                      type="text"
-                      value={month}
-                      onChange={(e) => setMonth(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Year
-                    </label>
-                    <input
-                      type="text"
-                      value={year}
-                      onChange={(e) => setYear(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Starting Balance (₹)
-                    </label>
-                    <input
-                      type="number"
-                      value={startingBalance}
-                      onChange={(e) =>
-                        setStartingBalance(Number(e.target.value))
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    />
-                  </div>
-                </div>
-
-                <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-sm text-blue-800">
-                    <strong>📱 Your User ID:</strong> {userId.slice(0, 20)}...
-                  </p>
-                  <p className="text-xs text-blue-600 mt-1">
-                    Your data is automatically saved to your device's local
-                    storage. Open this same file on any device to access your
-                    data.
-                  </p>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow-lg overflow-hidden mb-6">
-                <div className="overflow-x-auto">
-                  {calculations.currentBalance < 0 && (
-                    <div className="bg-red-100 text-red-800 px-4 py-2 rounded mb-4">
-                      ⚠️ Warning: Your expenses exceed your available balance!
-                    </div>
-                  )}
-                  <table className="w-full">
-                    <thead className="bg-indigo-600 text-white">
-                      <tr>
-                        <th className="px-4 py-3 text-left font-semibold">
-                          Date
-                        </th>
-                        <th className="px-4 py-3 text-left font-semibold">
-                          Expense Description
-                        </th>
-                        <th className="px-4 py-3 text-left font-semibold">
-                          Meal
-                        </th>
-                        <th className="px-4 py-3 text-left font-semibold">
-                          Debit (₹)
-                        </th>
-                        <th className="px-4 py-3 text-left font-semibold">
-                          Credit (₹)
-                        </th>
-                        <th className="px-4 py-3 text-center font-semibold">
-                          Action
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {expenses.map((expense, index) => (
-                        <tr
-                          key={expense.id}
-                          className={
-                            index % 2 === 0 ? "bg-gray-50" : "bg-white"
-                          }
-                        >
-                          <td className="px-4 py-3">
-                            <input
-                              type="date"
-                              value={expense.date}
-                              onChange={(e) =>
-                                updateExpense(
-                                  expense.id,
-                                  "date",
-                                  e.target.value
-                                )
-                              }
-                              className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                            />
-                          </td>
-                          <td className="px-4 py-3">
-                            {expense.isCustom ? (
-                              <div className="flex gap-2">
-                                <input
-                                  type="text"
-                                  value={expense.description}
-                                  onChange={(e) =>
-                                    updateExpense(
-                                      expense.id,
-                                      "description",
-                                      e.target.value
-                                    )
-                                  }
-                                  placeholder="Enter custom description"
-                                  className="flex-1 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                />
-                                <button
-                                  onClick={() =>
-                                    setExpenses(
-                                      expenses.map((e) =>
-                                        e.id === expense.id
-                                          ? {
-                                              ...e,
-                                              isCustom: false,
-                                              description: "",
-                                            }
-                                          : e
-                                      )
-                                    )
-                                  }
-                                  className="px-2 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded"
-                                  title="Switch to dropdown"
-                                >
-                                  ↩
-                                </button>
-                              </div>
-                            ) : (
-                              <select
-                                value={expense.description}
-                                onChange={(e) =>
-                                  updateExpense(
-                                    expense.id,
-                                    "description",
-                                    e.target.value
-                                  )
-                                }
-                                className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                              >
-                                <option value="">Select expense...</option>
-                                {expenseOptions.map((option) => (
-                                  <option key={option} value={option}>
-                                    {option}
-                                  </option>
-                                ))}
-                              </select>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            <select
-                              value={expense.meal}
-                              onChange={(e) =>
-                                updateExpense(
-                                  expense.id,
-                                  "meal",
-                                  e.target.value
-                                )
-                              }
-                              className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                            >
-                              {mealOptions.map((option) => (
-                                <option key={option} value={option}>
-                                  {option}
-                                </option>
-                              ))}
-                            </select>
-                          </td>
-                          <td className="px-4 py-3">
-                            <input
-                              type="number"
-                              min="0"
-                              value={expense.debit}
-                              onChange={(e) =>
-                                updateExpense(
-                                  expense.id,
-                                  "debit",
-                                  e.target.value
-                                )
-                              }
-                              placeholder="0"
-                              className="w-full px-2 py-1 border border-gray-300 rounded"
-                            />
-                          </td>
-                          <td className="px-4 py-3">
-                            <input
-                              type="number"
-                              min="0" // 👈 ADD THIS LINE
-                              value={expense.credit}
-                              onChange={(e) =>
-                                updateExpense(
-                                  expense.id,
-                                  "credit",
-                                  e.target.value
-                                )
-                              }
-                              placeholder="0"
-                              className="w-full px-2 py-1 border border-gray-300 rounded"
-                            />
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <button
-                              onClick={() => deleteExpense(expense.id)}
-                              className="text-red-600 hover:text-red-800 transition"
-                            >
-                              <Trash2 />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-                <div className="bg-white rounded-lg shadow-lg p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600 mb-1">
-                        Opening Balance
-                      </p>
-                      <p className="text-2xl font-bold text-blue-600">
-                        ₹{calculations.openingBalance.toLocaleString()}
-                      </p>
-                    </div>
-                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                      <span className="text-2xl">💼</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-lg shadow-lg p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600 mb-1">
-                        Other Credits
-                      </p>
-                      <p className="text-2xl font-bold text-green-600">
-                        ₹{calculations.totalCredit.toLocaleString()}
-                      </p>
-                    </div>
-                    <TrendingUp />
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-lg shadow-lg p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600 mb-1">Total Debit</p>
-                      <p className="text-2xl font-bold text-red-600">
-                        ₹{calculations.totalDebit.toLocaleString()}
-                      </p>
-                    </div>
-                    <TrendingDown />
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-lg shadow-lg p-6">
-                  <div className="flex items-center justify-between">
-                    {/* LEFT TEXT */}
-                    <div>
-                      <p className="text-sm text-gray-600 mb-1">
-                        Current Balance
-                      </p>
-                      <p
-                        className={`text-2xl font-bold ${
-                          calculations.currentBalance >= 0
-                            ? "text-blue-600"
-                            : "text-red-600"
-                        }`}
-                      >
-                        ₹{calculations.currentBalance.toLocaleString()}
-                      </p>
-                    </div>
-
-                    {/* RIGHT ICON */}
-                    <div
-                      className={`w-10 h-10 rounded-full ${
-                        calculations.currentBalance >= 0
-                          ? "bg-blue-100"
-                          : "bg-red-100"
-                      } flex items-center justify-center`}
-                    >
-                      <span className="text-2xl">
-                        {calculations.currentBalance >= 0 ? "💰" : "⚠️"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-                <h2 className="text-xl font-bold text-gray-800 mb-4">
-                  Meal Expenses
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="border-l-4 border-orange-500 pl-4 py-2">
-                    <p className="text-sm text-gray-600">Total Lunch</p>
-                    <p className="text-2xl font-bold text-orange-600">
-                      ₹{calculations.lunchTotal.toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="border-l-4 border-purple-500 pl-4 py-2">
-                    <p className="text-sm text-gray-600">Total Tea</p>
-                    <p className="text-2xl font-bold text-purple-600">
-                      ₹{calculations.teaTotal.toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-                <h2 className="text-xl font-bold text-gray-800 mb-4">
-                  Expense Breakdown by Description (Excluding Meals)
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {Object.entries(calculations.expenseByDescription)
-                    .sort(([, a], [, b]) => b - a)
-                    .map(([description, amount]) => (
-                      <div
-                        key={description}
-                        className="border-l-4 border-indigo-500 pl-4 py-2"
-                      >
-                        <p className="text-sm text-gray-600">{description}</p>
-                        <p className="text-lg font-bold text-gray-800">
-                          ₹{amount.toLocaleString()}
-                        </p>
-                      </div>
-                    ))}
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow-lg p-6">
-                <h2 className="text-xl font-bold text-gray-800 mb-4">
-                  Monthly Summary
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="border-l-4 border-blue-500 pl-4">
-                    <p className="text-sm text-gray-600">
-                      Opening Balance (Salary)
-                    </p>
-                    <p className="text-3xl font-bold text-blue-600">
-                      ₹{calculations.openingBalance.toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="border-l-4 border-green-500 pl-4">
-                    <p className="text-sm text-gray-600">
-                      Other Credits (Income)
-                    </p>
-                    <p className="text-3xl font-bold text-green-600">
-                      ₹{calculations.otherCredits.toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="border-l-4 border-red-500 pl-4">
-                    <p className="text-sm text-gray-600">
-                      Total Debit (Expenses)
-                    </p>
-                    <p className="text-3xl font-bold text-red-600">
-                      ₹{calculations.totalDebit.toLocaleString()}
-                    </p>
-                  </div>
-                </div>
+                <button onClick={addExpense} className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition"><Plus /> Add Row</button>
+                <button onClick={clearAllExpenses} className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition">Clear All</button>
               </div>
             </div>
-          </div>
-        );
-      };
 
-      const root = ReactDOM.createRoot(document.getElementById("root"));
-      root.render(<MonthlyExpenseSheet />);
-    </script>
-  </body>
-</html>
+            {calculations.currentBalance < 0 && (
+              <div className="bg-red-100 text-red-800 px-4 py-2 rounded mb-4">
+                ⚠️ Warning: Your expenses exceed your available balance!
+              </div>
+            )}
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-indigo-600 text-white">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-semibold">Date</th>
+                    <th className="px-4 py-3 text-left font-semibold">Description</th>
+                    <th className="px-4 py-3 text-left font-semibold">Meal</th>
+                    <th className="px-4 py-3 text-left font-semibold">Debit (₹)</th>
+                    <th className="px-4 py-3 text-left font-semibold">Credit (₹)</th>
+                    <th className="px-4 py-3 text-center font-semibold">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {expenses.map((expense) => (
+                    <tr key={expense.id} className="bg-white">
+                      <td className="px-4 py-3">
+                        <input type="date" value={expense.date} onChange={(e) => updateExpense(expense.id, "date", e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded" />
+                      </td>
+                      <td className="px-4 py-3">
+                        <input type="text" value={expense.description} onChange={(e) => updateExpense(expense.id, "description", e.target.value)} placeholder="Enter description" className="w-full px-2 py-1 border border-gray-300 rounded" />
+                      </td>
+                      <td className="px-4 py-3">
+                        <select value={expense.meal} onChange={(e) => updateExpense(expense.id, "meal", e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded">
+                          {mealOptions.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                        </select>
+                      </td>
+                      <td className="px-4 py-3">
+                        <input type="number" min="0" value={expense.debit} onChange={(e) => updateExpense(expense.id, "debit", e.target.value)} placeholder="0" className="w-full px-2 py-1 border border-gray-300 rounded" />
+                      </td>
+                      <td className="px-4 py-3">
+                        <input type="number" min="0" value={expense.credit} onChange={(e) => updateExpense(expense.id, "credit", e.target.value)} placeholder="0" className="w-full px-2 py-1 border border-gray-300 rounded" />
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <button onClick={() => deleteExpense(expense.id)} className="text-red-600 hover:text-red-800"><Trash2 /></button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const root = ReactDOM.createRoot(document.getElementById("root"));
+  root.render(<MonthlyExpenseSheet />);
+</script>
