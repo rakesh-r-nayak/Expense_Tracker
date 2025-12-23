@@ -386,6 +386,13 @@
               if (e.id === id) {
                 // ✅ Debit entered → clear Credit
                 if (field === "debit") {
+                  const newDebit = Number(value) || 0;
+
+                  if (newDebit > calculations.currentBalance) {
+                    alert("Debit amount exceeds available balance");
+                    return e; // block update
+                  }
+
                   return { ...e, debit: value, credit: "" };
                 }
 
@@ -403,48 +410,30 @@
         };
 
         const calculations = useMemo(() => {
-          const openingBalance = parseFloat(startingBalance) || 0;
+          const openingBalance = Number(startingBalance) || 0;
 
           const totalDebit = expenses.reduce(
-            (sum, e) => sum + (parseFloat(e.debit) || 0),
+            (sum, e) => sum + (Number(e.debit) || 0),
             0
           );
 
           const totalCredit = expenses.reduce(
-            (sum, e) => sum + (parseFloat(e.credit) || 0),
+            (sum, e) => sum + (Number(e.credit) || 0),
             0
           );
 
-          const lunchTotal = expenses.reduce(
-            (sum, e) =>
-              e.meal === "Lunch" ? sum + (parseFloat(e.debit) || 0) : sum,
-            0
-          );
+          let runningBalance = openingBalance;
 
-          const teaTotal = expenses.reduce(
-            (sum, e) =>
-              e.meal === "Tea" ? sum + (parseFloat(e.debit) || 0) : sum,
-            0
-          );
-
-          const expenseByDescription = expenses.reduce((acc, e) => {
-            if (!e.description || e.meal) return acc;
-            acc[e.description] =
-              (acc[e.description] || 0) + (parseFloat(e.debit) || 0);
-            return acc;
-          }, {});
-
-          const currentBalance = openingBalance + totalCredit - totalDebit;
+          expenses.forEach((e) => {
+            runningBalance += Number(e.credit || 0);
+            runningBalance -= Number(e.debit || 0);
+          });
 
           return {
             openingBalance,
             totalDebit,
             totalCredit,
-            otherCredits: totalCredit,
-            lunchTotal,
-            teaTotal,
-            expenseByDescription,
-            currentBalance,
+            currentBalance: runningBalance,
           };
         }, [expenses, startingBalance]);
 
