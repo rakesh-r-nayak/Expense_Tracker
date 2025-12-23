@@ -384,12 +384,17 @@
           setExpenses(
             expenses.map((e) => {
               if (e.id === id) {
+                // Debit: allow any input, clear credit
                 if (field === "debit") {
-                  return { ...e, debit: value, credit: "" }; // allow free typing
+                  return { ...e, debit: value, credit: "" }; // keep value as string
                 }
+
+                // Credit: allow any input, clear debit
                 if (field === "credit") {
                   return { ...e, credit: value, debit: "" };
                 }
+
+                // Other fields
                 return { ...e, [field]: value };
               }
               return e;
@@ -703,7 +708,7 @@
                           <td className="px-4 py-3">
                             <input
                               type="number"
-                              min="0" // 👈 ADD THIS LINE
+                              min="0"
                               value={expense.debit}
                               onChange={(e) =>
                                 updateExpense(
