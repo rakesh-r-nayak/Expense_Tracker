@@ -384,24 +384,12 @@
           setExpenses(
             expenses.map((e) => {
               if (e.id === id) {
-                // ✅ Debit entered → clear Credit
                 if (field === "debit") {
-                  const newDebit = Number(value) || 0;
-
-                  if (newDebit > calculations.currentBalance) {
-                    alert("Debit amount exceeds available balance");
-                    return e; // block update
-                  }
-
-                  return { ...e, debit: value, credit: "" };
+                  return { ...e, debit: value, credit: "" }; // allow free typing
                 }
-
-                // ✅ Credit entered → clear Debit
                 if (field === "credit") {
                   return { ...e, credit: value, debit: "" };
                 }
-
-                // ✅ All other fields
                 return { ...e, [field]: value };
               }
               return e;
@@ -586,6 +574,11 @@
 
               <div className="bg-white rounded-lg shadow-lg overflow-hidden mb-6">
                 <div className="overflow-x-auto">
+                  {calculations.currentBalance < 0 && (
+                    <div className="bg-red-100 text-red-800 px-4 py-2 rounded mb-4">
+                      ⚠️ Warning: Your expenses exceed your available balance!
+                    </div>
+                  )}
                   <table className="w-full">
                     <thead className="bg-indigo-600 text-white">
                       <tr>
