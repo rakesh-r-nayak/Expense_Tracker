@@ -590,13 +590,29 @@
                             ) : (
                               <select
                                 value={expense.description}
-                                onChange={(e) =>
-                                  updateExpense(
-                                    expense.id,
-                                    "description",
-                                    e.target.value
-                                  )
-                                }
+                                onChange={(e) => {
+                                  const value = e.target.value;
+
+                                  if (value === "Other (Custom)") {
+                                    setExpenses((prev) =>
+                                      prev.map((ex) =>
+                                        ex.id === expense.id
+                                          ? {
+                                              ...ex,
+                                              isCustom: true,
+                                              description: "",
+                                            }
+                                          : ex
+                                      )
+                                    );
+                                  } else {
+                                    updateExpense(
+                                      expense.id,
+                                      "description",
+                                      value
+                                    );
+                                  }
+                                }}
                                 className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                               >
                                 <option value="">Select expense...</option>
@@ -608,6 +624,7 @@
                               </select>
                             )}
                           </td>
+
                           <td className="px-4 py-3">
                             <select
                               value={expense.meal}
