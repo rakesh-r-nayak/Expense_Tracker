@@ -326,7 +326,7 @@
             startingBalance === "" ? 0 : Number(startingBalance);
 
           const totalDebit = expenses.reduce(
-            (sum, e) => sum + (Number(e.debit) || 0) - (Number(e.credit) || 0),
+            (sum, e) => sum + (Number(e.debit) || 0),
             0
           );
 
@@ -335,7 +335,12 @@
             0
           );
 
-          let runningBalance = openingBalance - totalDebit;
+          const pureDebitTotal = expenses.reduce(
+            (sum, e) => sum + (Number(e.debit) || 0),
+            0
+          );
+
+          const currentBalance = openingBalance + totalCredit - totalDebit;
 
           const lunchTotal = expenses
             .filter((e) => e.meal === "Lunch")
@@ -354,13 +359,12 @@
             }
           });
 
-          const otherCredits = totalCredit;
-
           return {
             openingBalance,
             totalDebit,
             totalCredit,
-            currentBalance: runningBalance,
+            currentBalance,
+            pureDebitTotal,
             lunchTotal,
             teaTotal,
             expenseByDescription,
@@ -702,9 +706,16 @@
                 <div className="bg-white rounded-lg shadow-lg p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-600 mb-1">Total Debit</p>
+                      <p className="text-sm text-gray-600 mb-1">Net Debit</p>
                       <p className="text-2xl font-bold text-red-600">
                         ₹{calculations.totalDebit.toLocaleString()}
+                      </p>
+
+                      <p className="text-sm text-gray-600 mt-3 mb-1">
+                        Total Expenses
+                      </p>
+                      <p className="text-xl font-bold text-orange-600">
+                        ₹{calculations.pureDebitTotal.toLocaleString()}
                       </p>
                     </div>
                     <TrendingDown />
