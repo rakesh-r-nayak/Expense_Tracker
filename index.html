@@ -359,15 +359,21 @@
             }
           });
 
+          // Add the missing properties
+          const pureDebitTotal = totalDebit; // Total expenses (same as totalDebit)
+          const otherCredits = totalCredit; // Other credits (same as totalCredit)
+
           return {
             openingBalance,
             totalDebit,
             totalCredit,
-            netDebit, // <-- Add this
+            netDebit,
             currentBalance,
             lunchTotal,
             teaTotal,
             expenseByDescription,
+            pureDebitTotal, // Add this
+            otherCredits, // Add this
           };
         }, [expenses, startingBalance]);
 
