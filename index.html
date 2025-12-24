@@ -540,13 +540,14 @@
                     </label>
                     <input
                       type="number"
-                      value={startingBalance}
+                      value={startingBalance === "" ? "" : startingBalance}
                       onChange={(e) =>
                         setStartingBalance(
                           e.target.value === "" ? "" : Number(e.target.value)
                         )
                       }
                       placeholder="Enter opening balance"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                     />
                   </div>
                 </div>
