@@ -325,19 +325,20 @@
           const openingBalance =
             startingBalance === "" ? 0 : Number(startingBalance);
 
+          // Total debit only sums debit values
           const totalDebit = expenses.reduce(
             (sum, e) => sum + (Number(e.debit) || 0),
             0
           );
+
+          // Total credit sums credit values
           const totalCredit = expenses.reduce(
             (sum, e) => sum + (Number(e.credit) || 0),
             0
           );
 
-          const pureDebitTotal = expenses.reduce(
-            (sum, e) => sum + (Number(e.debit) || 0),
-            0
-          );
+          // Net Debit = totalDebit minus credit amounts
+          const netDebit = totalDebit - totalCredit;
 
           const currentBalance = openingBalance + totalCredit - totalDebit;
 
@@ -358,18 +359,15 @@
             }
           });
 
-          const otherCredits = totalCredit;
-
           return {
             openingBalance,
             totalDebit,
             totalCredit,
+            netDebit, // <-- Add this
             currentBalance,
-            pureDebitTotal,
             lunchTotal,
             teaTotal,
             expenseByDescription,
-            otherCredits,
           };
         }, [expenses, startingBalance]);
 
@@ -726,7 +724,7 @@
                     <div>
                       <p className="text-sm text-gray-600 mb-1">Net Debit</p>
                       <p className="text-2xl font-bold text-red-600">
-                        ₹{calculations.totalDebit.toLocaleString()}
+                        ₹{calculations.netDebit.toLocaleString()}
                       </p>
 
                       <p className="text-sm text-gray-600 mt-3 mb-1">
