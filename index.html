@@ -166,6 +166,23 @@
             ]),
           ];
 
+          const monthKey = `${year}-${String(
+            [
+              "January",
+              "February",
+              "March",
+              "April",
+              "May",
+              "June",
+              "July",
+              "August",
+              "September",
+              "October",
+              "November",
+              "December",
+            ].indexOf(month) + 1
+          ).padStart(2, "0")}`;
+
           const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
           const workbook = XLSX.utils.book_new();
           XLSX.utils.book_append_sheet(workbook, worksheet, "Expenses");
@@ -226,7 +243,14 @@
 
           try {
             setSyncStatus("syncing");
-            await db.collection("expenseTracker").doc(userId).set(data);
+
+            await db
+              .collection("expenseTracker")
+              .doc(userId)
+              .collection("months")
+              .doc(monthKey)
+              .set(data);
+
             setSyncStatus("synced");
           } catch (error) {
             console.error("Firebase sync error:", error);
@@ -235,12 +259,12 @@
         };
 
         const loadFromCloud = async () => {
-          // Load from local backup first (instant)
-          const local = localStorage.getItem("expenseBackup");
+          // Load from local backup first
+          const local = localStorage.getItem(`expenseBackup-${monthKey}`);
           if (local) {
             const data = JSON.parse(local);
-            setMonth(data.month || "January");
-            setYear(data.year || "2025");
+            setMonth(data.month || month);
+            setYear(data.year || year);
             setStartingBalance(data.startingBalance || "");
             setExpenses(data.expenses || []);
           }
@@ -248,15 +272,16 @@
           if (!userId) return;
 
           try {
-            const doc = await db.collection("expenseTracker").doc(userId).get();
+            const doc = await db
+              .collection("expenseTracker")
+              .doc(userId)
+              .collection("months")
+              .doc(monthKey)
+              .get();
 
             if (doc.exists) {
               const data = doc.data();
-              setMonth(data.month || "January");
-              setYear(data.year || "2025");
-              setStartingBalance(
-                data.startingBalance !== undefined ? data.startingBalance : ""
-              );
+              setStartingBalance(data.startingBalance || "");
               setExpenses(data.expenses || []);
             }
           } catch (error) {
@@ -313,15 +338,13 @@
             window.removeEventListener("beforeunload", handleBeforeUnload);
         }, [month, year, startingBalance, expenses, userId]);
 
-        // 🧠 Instant local backup (this is the new one)
+        // ✅ Month-wise local backup
         useEffect(() => {
-          const data = {
-            month,
-            year,
-            startingBalance,
-            expenses,
-          };
-          localStorage.setItem("expenseBackup", JSON.stringify(data));
+          const data = { month, year, startingBalance, expenses };
+          localStorage.setItem(
+            `expenseBackup-${monthKey}`,
+            JSON.stringify(data)
+          );
         }, [month, year, startingBalance, expenses]);
 
         const addExpense = () => {
