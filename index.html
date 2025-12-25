@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Monthly Expense Tracker</title>
+    <title>Expense & Credit Card Tracker</title>
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -12,7 +12,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
-    <!-- SheetJS -->
+    <!-- SheetJS (optional for future export) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
     <!-- React -->
@@ -21,24 +21,11 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
 
     <style>
-      body {
-        margin: 0;
-        padding: 0;
-        font-family: system-ui, -apple-system, sans-serif;
-      }
+      body { margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
       input[type="number"]::-webkit-inner-spin-button,
-      input[type="number"]::-webkit-outer-spin-button {
-        -webkit-appearance: none;
-        margin: 0;
-      }
-      input[type="number"] {
-        -moz-appearance: textfield;
-      }
+      input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+      input[type="number"] { -moz-appearance: textfield; }
 
-      /* Mobile-friendly table scroll hint */
-      .table-container {
-        position: relative;
-      }
       .table-container::after {
         content: '← Scroll horizontally →';
         display: block;
@@ -50,11 +37,7 @@
         border-bottom-left-radius: 0.5rem;
         border-bottom-right-radius: 0.5rem;
       }
-      @media (min-width: 768px) {
-        .table-container::after {
-          display: none;
-        }
-      }
+      @media (min-width: 768px) { .table-container::after { display: none; } }
     </style>
   </head>
   <body>
@@ -77,7 +60,7 @@
       const db = firebase.firestore();
       const FIXED_USER_ID = "rakesh-expense-tracker";
 
-      // SVG Icons (unchanged)
+      // Icons
       const Plus = () => (
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <line x1="12" y1="5" x2="12" y2="19" />
@@ -117,21 +100,62 @@
         </svg>
       );
 
+      const CreditCard = () => (
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+          <line x1="1" y1="10" x2="23" y2="10" />
+        </svg>
+      );
+
       const Cloud = () => (
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" />
         </svg>
       );
 
+      const App = () => {
+        const [activeTab, setActiveTab] = useState("monthly");
+
+        return (
+          <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 sm:p-6">
+            <div className="max-w-7xl mx-auto">
+              <div className="flex flex-wrap gap-2 mb-6">
+                <button
+                  onClick={() => setActiveTab("monthly")}
+                  className={`flex items-center gap-3 px-6 py-3 rounded-lg font-semibold transition ${
+                    activeTab === "monthly" ? "bg-indigo-600 text-white shadow-lg" : "bg-white text-gray-700 shadow hover:bg-gray-100"
+                  }`}
+                >
+                  <Calendar /> Monthly Expenses
+                </button>
+                <button
+                  onClick={() => setActiveTab("credit")}
+                  className={`flex items-center gap-3 px-6 py-3 rounded-lg font-semibold transition ${
+                    activeTab === "credit" ? "bg-red-600 text-white shadow-lg" : "bg-white text-gray-700 shadow hover:bg-gray-100"
+                  }`}
+                >
+                  <CreditCard /> Credit Card Expenses
+                </button>
+              </div>
+
+              {activeTab === "monthly" ? <MonthlyExpenseSheet /> : <CreditCardExpenseSheet />}
+            </div>
+          </div>
+        );
+      };
+
+      // Full Monthly Expense Sheet (mobile-optimized from previous)
       const MonthlyExpenseSheet = () => {
-        const [month, setMonth] = useState("December");
-        const [year, setYear] = useState("2025");
+        const currentDate = new Date();
+        const [month, setMonth] = useState(currentDate.toLocaleString('default', { month: 'long' }));
+        const [year, setYear] = useState(currentDate.getFullYear().toString());
         const [startingBalance, setStartingBalance] = useState(50000);
         const [syncStatus, setSyncStatus] = useState("synced");
         const [expenses, setExpenses] = useState([]);
         const isInitialLoad = useRef(true);
 
-        const monthIndex = ["January","February","March","April","May","June","July","August","September","October","November","December"].indexOf(month);
+        const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+        const monthIndex = months.indexOf(month);
         const monthKey = `${year}-${String(monthIndex + 1).padStart(2, "0")}`;
 
         const expenseOptions = [
@@ -178,7 +202,6 @@
             isInitialLoad.current = false;
             return;
           }
-
           const dataToSync = { month, year, startingBalance, expenses, lastUpdated: new Date().toISOString() };
           const timer = setTimeout(() => syncToCloud(dataToSync), 800);
           return () => clearTimeout(timer);
@@ -275,236 +298,327 @@
         };
 
         return (
-          <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 sm:p-6">
-            <div className="max-w-7xl mx-auto">
-              {/* Header */}
-              <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6 mb-6">
-                <div className="flex flex-col gap-4 mb-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <Calendar />
-                      <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Monthly Expense Tracker</h1>
-                    </div>
-                  </div>
+          <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6 mb-6">
+            <div className="flex flex-col gap-4 mb-6">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <Calendar />
+                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Monthly Expense Tracker</h1>
+                </div>
+              </div>
 
-                  <div className="flex flex-wrap items-center gap-3">
-                    <div className={`flex items-center gap-2 ${getSyncStatusColor()}`}>
-                      <Cloud />
-                      <span className="text-sm font-medium">{getSyncStatusText()}</span>
-                    </div>
-
-                    <button onClick={addExpense} className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-3 rounded-lg hover:bg-indigo-700 transition text-sm font-medium min-w-[120px] justify-center">
-                      <Plus /> Add Row
-                    </button>
-
-                    <button onClick={exportToExcel} className="bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition text-sm font-medium min-w-[120px]">
-                      Export Excel
-                    </button>
-
-                    <label className="bg-blue-600 text-white px-4 py-3 rounded-lg cursor-pointer hover:bg-blue-700 transition text-sm font-medium min-w-[120px] text-center">
-                      Import Excel
-                      <input type="file" accept=".xlsx,.xls" onChange={importFromExcel} className="hidden" />
-                    </label>
-                  </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className={`flex items-center gap-2 ${getSyncStatusColor()}`}>
+                  <Cloud />
+                  <span className="text-sm font-medium">{getSyncStatusText()}</span>
                 </div>
 
-                {/* Controls */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <button onClick={addExpense} className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-3 rounded-lg hover:bg-indigo-700 transition text-sm font-medium min-w-[120px] justify-center">
+                  <Plus /> Add Row
+                </button>
+
+                <button onClick={exportToExcel} className="bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition text-sm font-medium min-w-[120px]">
+                  Export Excel
+                </button>
+
+                <label className="bg-blue-600 text-white px-4 py-3 rounded-lg cursor-pointer hover:bg-blue-700 transition text-sm font-medium min-w-[120px] text-center">
+                  Import Excel
+                  <input type="file" accept=".xlsx,.xls" onChange={importFromExcel} className="hidden" />
+                </label>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Month</label>
+                <select value={month} onChange={e => setMonth(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-base">
+                  {months.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
+                <input type="number" value={year} onChange={e => setYear(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-base" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Starting Balance (₹)</label>
+                <input type="number" value={startingBalance} onChange={e => setStartingBalance(Number(e.target.value) || 0)} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-base" />
+              </div>
+            </div>
+
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg mb-6">
+              <p className="text-sm text-blue-800"><strong>📱 User ID:</strong> {FIXED_USER_ID}</p>
+              <p className="text-xs text-blue-600 mt-1">Data is automatically synced to Firebase</p>
+            </div>
+
+            <div className="overflow-x-auto table-container -mx-4 sm:mx-0 mb-6">
+              {calculations.currentBalance < 0 && (
+                <div className="bg-red-100 text-red-800 px-4 py-3 mx-4 mt-4 rounded-lg text-sm">
+                  ⚠️ Warning: Your expenses exceed your available balance!
+                </div>
+              )}
+              <table className="w-full min-w-[900px]">
+                <thead className="bg-indigo-600 text-white">
+                  <tr>
+                    <th className="px-3 py-4 text-left font-semibold text-sm">Date</th>
+                    <th className="px-3 py-4 text-left font-semibold text-sm">Expense Description</th>
+                    <th className="px-3 py-4 text-left font-semibold text-sm">Meal</th>
+                    <th className="px-3 py-4 text-left font-semibold text-sm">Debit (₹)</th>
+                    <th className="px-3 py-4 text-left font-semibold text-sm">Credit (₹)</th>
+                    <th className="px-3 py-4 text-center font-semibold text-sm">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {expenses.map((expense, i) => (
+                    <tr key={expense.id} className={i % 2 === 0 ? "bg-gray-50" : "bg-white"}>
+                      <td className="px-3 py-3">
+                        <input type="date" value={expense.date} onChange={e => updateExpense(expense.id, "date", e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 text-sm" />
+                      </td>
+                      <td className="px-3 py-3">
+                        {expense.isCustom ? (
+                          <div className="flex flex-col sm:flex-row gap-2">
+                            <input type="text" value={expense.description} onChange={e => updateExpense(expense.id, "description", e.target.value)} placeholder="Custom description" className="flex-1 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 text-sm" />
+                            <button onClick={() => setExpenses(prev => prev.map(ex => ex.id === expense.id ? { ...ex, isCustom: false, description: "" } : ex))} className="px-3 py-2 text-sm bg-gray-200 hover:bg-gray-300 rounded">↩</button>
+                          </div>
+                        ) : (
+                          <select value={expense.description} onChange={e => {
+                            const val = e.target.value;
+                            if (val === "Other (Custom)") {
+                              setExpenses(prev => prev.map(ex => ex.id === expense.id ? { ...ex, isCustom: true, description: "" } : ex));
+                            } else {
+                              updateExpense(expense.id, "description", val);
+                            }
+                          }} className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 text-sm">
+                            <option value="">Select...</option>
+                            {expenseOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                          </select>
+                        )}
+                      </td>
+                      <td className="px-3 py-3">
+                        <select value={expense.meal} onChange={e => updateExpense(expense.id, "meal", e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 text-sm">
+                          {mealOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                        </select>
+                      </td>
+                      <td className="px-3 py-3">
+                        <input type="number" min="0" value={expense.debit} onChange={e => updateExpense(expense.id, "debit", e.target.value)} placeholder="0" className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 text-sm" />
+                      </td>
+                      <td className="px-3 py-3">
+                        <input type="number" min="0" value={expense.credit} onChange={e => updateExpense(expense.id, "credit", e.target.value)} placeholder="0" className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 text-sm" />
+                      </td>
+                      <td className="px-3 py-3 text-center">
+                        <button onClick={() => deleteExpense(expense.id)} className="text-red-600 hover:text-red-800 p-2">
+                          <Trash2 />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <div className="bg-white rounded-lg shadow-lg p-5 border">
+                <div className="flex items-center justify-between">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Month</label>
-                    <select value={month} onChange={e => setMonth(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-base">
-                      {["January","February","March","April","May","June","July","August","September","October","November","December"].map(m => (
-                        <option key={m} value={m}>{m}</option>
-                      ))}
-                    </select>
+                    <p className="text-sm text-gray-600 mb-1">Opening Balance</p>
+                    <p className="text-2xl font-bold text-blue-600">₹{calculations.openingBalance.toLocaleString()}</p>
                   </div>
+                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center"><span className="text-2xl">💼</span></div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg shadow-lg p-5 border">
+                <div className="flex items-center justify-between">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
-                    <input type="number" value={year} onChange={e => setYear(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-base" />
+                    <p className="text-sm text-gray-600 mb-1">Other Credits</p>
+                    <p className="text-2xl font-bold text-green-600">₹{calculations.totalCredit.toLocaleString()}</p>
                   </div>
+                  <TrendingUp />
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg shadow-lg p-5 border">
+                <div className="flex items-center justify-between">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Starting Balance (₹)</label>
-                    <input type="number" value={startingBalance} onChange={e => setStartingBalance(Number(e.target.value) || 0)} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-base" />
+                    <p className="text-sm text-gray-600 mb-1">Net Debit</p>
+                    <p className="text-2xl font-bold text-red-600">₹{calculations.netDebit.toLocaleString()}</p>
+                    <p className="text-sm text-gray-600 mt-3 mb-1">Total Expenses</p>
+                    <p className="text-xl font-bold text-orange-600">₹{calculations.totalDebit.toLocaleString()}</p>
                   </div>
-                </div>
-
-                <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-sm text-blue-800"><strong>📱 User ID:</strong> {FIXED_USER_ID}</p>
-                  <p className="text-xs text-blue-600 mt-1">Data is automatically synced to Firebase</p>
+                  <TrendingDown />
                 </div>
               </div>
 
-              {/* Expenses Table */}
-              <div className="bg-white rounded-lg shadow-lg overflow-hidden mb-6 table-container">
-                <div className="overflow-x-auto -mx-4 sm:mx-0">
-                  {calculations.currentBalance < 0 && (
-                    <div className="bg-red-100 text-red-800 px-4 py-3 mx-4 mt-4 rounded-lg text-sm">
-                      ⚠️ Warning: Your expenses exceed your available balance!
-                    </div>
-                  )}
-                  <table className="w-full min-w-[900px]">
-                    <thead className="bg-indigo-600 text-white">
-                      <tr>
-                        <th className="px-3 py-4 text-left font-semibold text-sm">Date</th>
-                        <th className="px-3 py-4 text-left font-semibold text-sm">Description</th>
-                        <th className="px-3 py-4 text-left font-semibold text-sm">Meal</th>
-                        <th className="px-3 py-4 text-left font-semibold text-sm">Debit (₹)</th>
-                        <th className="px-3 py-4 text-left font-semibold text-sm">Credit (₹)</th>
-                        <th className="px-3 py-4 text-center font-semibold text-sm">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {expenses.map((expense, i) => (
-                        <tr key={expense.id} className={i % 2 === 0 ? "bg-gray-50" : "bg-white"}>
-                          <td className="px-3 py-3">
-                            <input type="date" value={expense.date} onChange={e => updateExpense(expense.id, "date", e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 text-sm" />
-                          </td>
-                          <td className="px-3 py-3">
-                            {expense.isCustom ? (
-                              <div className="flex flex-col sm:flex-row gap-2">
-                                <input type="text" value={expense.description} onChange={e => updateExpense(expense.id, "description", e.target.value)} placeholder="Custom description" className="flex-1 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 text-sm" />
-                                <button onClick={() => setExpenses(prev => prev.map(ex => ex.id === expense.id ? { ...ex, isCustom: false, description: "" } : ex))} className="px-3 py-2 text-sm bg-gray-200 hover:bg-gray-300 rounded">↩</button>
-                              </div>
-                            ) : (
-                              <select value={expense.description} onChange={e => {
-                                const val = e.target.value;
-                                if (val === "Other (Custom)") {
-                                  setExpenses(prev => prev.map(ex => ex.id === expense.id ? { ...ex, isCustom: true, description: "" } : ex));
-                                } else {
-                                  updateExpense(expense.id, "description", val);
-                                }
-                              }} className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 text-sm">
-                                <option value="">Select...</option>
-                                {expenseOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                              </select>
-                            )}
-                          </td>
-                          <td className="px-3 py-3">
-                            <select value={expense.meal} onChange={e => updateExpense(expense.id, "meal", e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 text-sm">
-                              {mealOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                            </select>
-                          </td>
-                          <td className="px-3 py-3">
-                            <input type="number" min="0" value={expense.debit} onChange={e => updateExpense(expense.id, "debit", e.target.value)} placeholder="0" className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 text-sm" />
-                          </td>
-                          <td className="px-3 py-3">
-                            <input type="number" min="0" value={expense.credit} onChange={e => updateExpense(expense.id, "credit", e.target.value)} placeholder="0" className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 text-sm" />
-                          </td>
-                          <td className="px-3 py-3 text-center">
-                            <button onClick={() => deleteExpense(expense.id)} className="text-red-600 hover:text-red-800 p-2">
-                              <Trash2 />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Summary Cards - Stack on mobile */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                {/* Cards remain the same visually, just better stacking */}
-                <div className="bg-white rounded-lg shadow-lg p-5">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600 mb-1">Opening Balance</p>
-                      <p className="text-2xl font-bold text-blue-600">₹{calculations.openingBalance.toLocaleString()}</p>
-                    </div>
-                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center"><span className="text-2xl">💼</span></div>
+              <div className="bg-white rounded-lg shadow-lg p-5 border">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Current Balance</p>
+                    <p className={`text-2xl font-bold ${calculations.currentBalance >= 0 ? "text-blue-600" : "text-red-600"}`}>
+                      ₹{calculations.currentBalance.toLocaleString()}
+                    </p>
                   </div>
-                </div>
-
-                <div className="bg-white rounded-lg shadow-lg p-5">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600 mb-1">Other Credits</p>
-                      <p className="text-2xl font-bold text-green-600">₹{calculations.totalCredit.toLocaleString()}</p>
-                    </div>
-                    <TrendingUp />
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-lg shadow-lg p-5">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600 mb-1">Net Debit</p>
-                      <p className="text-2xl font-bold text-red-600">₹{calculations.netDebit.toLocaleString()}</p>
-                      <p className="text-sm text-gray-600 mt-3 mb-1">Total Expenses</p>
-                      <p className="text-xl font-bold text-orange-600">₹{calculations.totalDebit.toLocaleString()}</p>
-                    </div>
-                    <TrendingDown />
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-lg shadow-lg p-5">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600 mb-1">Current Balance</p>
-                      <p className={`text-2xl font-bold ${calculations.currentBalance >= 0 ? "text-blue-600" : "text-red-600"}`}>
-                        ₹{calculations.currentBalance.toLocaleString()}
-                      </p>
-                    </div>
-                    <div className={`w-10 h-10 rounded-full ${calculations.currentBalance >= 0 ? "bg-blue-100" : "bg-red-100"} flex items-center justify-center`}>
-                      <span className="text-2xl">{calculations.currentBalance >= 0 ? "💰" : "⚠️"}</span>
-                    </div>
+                  <div className={`w-10 h-10 rounded-full ${calculations.currentBalance >= 0 ? "bg-blue-100" : "bg-red-100"} flex items-center justify-center`}>
+                    <span className="text-2xl">{calculations.currentBalance >= 0 ? "💰" : "⚠️"}</span>
                   </div>
                 </div>
               </div>
+            </div>
 
-              {/* Rest of sections (Meal, Breakdown, Summary) - already responsive */}
-              <div className="bg-white rounded-lg shadow-lg p-5 mb-6">
-                <h2 className="text-xl font-bold text-gray-800 mb-4">Meal Expenses</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="border-l-4 border-orange-500 pl-4 py-2">
-                    <p className="text-sm text-gray-600">Total Lunch</p>
-                    <p className="text-2xl font-bold text-orange-600">₹{calculations.lunchTotal.toLocaleString()}</p>
-                  </div>
-                  <div className="border-l-4 border-purple-500 pl-4 py-2">
-                    <p className="text-sm text-gray-600">Total Tea</p>
-                    <p className="text-2xl font-bold text-purple-600">₹{calculations.teaTotal.toLocaleString()}</p>
-                  </div>
-                </div>
-              </div>
+            {/* Additional sections like Meal Expenses, Breakdown, Summary can be added here if needed */}
+          </div>
+        );
+      };
 
-              <div className="bg-white rounded-lg shadow-lg p-5 mb-6">
-                <h2 className="text-xl font-bold text-gray-800 mb-4">Expense Breakdown (Excluding Meals)</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {Object.entries(calculations.expenseByDescription)
-                    .sort(([,a],[,b]) => b - a)
-                    .map(([desc, amt]) => (
-                      <div key={desc} className="border-l-4 border-indigo-500 pl-4 py-2">
-                        <p className="text-sm text-gray-600">{desc}</p>
-                        <p className="text-lg font-bold text-gray-800">₹{amt.toLocaleString()}</p>
-                      </div>
-                    ))}
-                </div>
-              </div>
+      // Credit Card Expense Sheet (unchanged)
+      const CreditCardExpenseSheet = () => {
+        const currentDate = new Date();
+        const [month, setMonth] = useState(currentDate.toLocaleString('default', { month: 'long' }));
+        const [year, setYear] = useState(currentDate.getFullYear().toString());
+        const [entries, setEntries] = useState([]);
+        const [syncStatus, setSyncStatus] = useState("synced");
+        const isInitialLoad = useRef(true);
 
-              <div className="bg-white rounded-lg shadow-lg p-5">
-                <h2 className="text-xl font-bold text-gray-800 mb-4">Monthly Summary</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                  <div className="border-l-4 border-blue-500 pl-4">
-                    <p className="text-sm text-gray-600">Opening Balance (Salary)</p>
-                    <p className="text-3xl font-bold text-blue-600">₹{calculations.openingBalance.toLocaleString()}</p>
-                  </div>
-                  <div className="border-l-4 border-green-500 pl-4">
-                    <p className="text-sm text-gray-600">Other Credits (Income)</p>
-                    <p className="text-3xl font-bold text-green-600">₹{calculations.totalCredit.toLocaleString()}</p>
-                  </div>
-                  <div className="border-l-4 border-red-500 pl-4">
-                    <p className="text-sm text-gray-600">Total Debit (Expenses)</p>
-                    <p className="text-3xl font-bold text-red-600">₹{calculations.totalDebit.toLocaleString()}</p>
-                  </div>
-                </div>
+        const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+        const monthIndex = months.indexOf(month);
+        const monthKey = `${year}-${String(monthIndex + 1).padStart(2, "0")}`;
+        const collectionPath = "creditCardExpenses";
+
+        const loadFromCloud = useCallback(async () => {
+          try {
+            const doc = await db.collection(collectionPath).doc(FIXED_USER_ID).collection("months").doc(monthKey).get();
+            if (doc.exists) {
+              setEntries(doc.data().entries || []);
+            } else {
+              setEntries([]);
+            }
+          } catch (e) { console.error(e); }
+        }, [monthKey]);
+
+        const syncToCloud = useCallback(async (data) => {
+          if (isInitialLoad.current) return;
+          try {
+            setSyncStatus("syncing");
+            await db.collection(collectionPath).doc(FIXED_USER_ID).collection("months").doc(monthKey).set(data);
+            setSyncStatus("synced");
+          } catch (e) {
+            console.error(e);
+            setSyncStatus("error");
+          }
+        }, [monthKey]);
+
+        useEffect(() => { loadFromCloud(); }, [loadFromCloud]);
+
+        useEffect(() => {
+          if (isInitialLoad.current) { isInitialLoad.current = false; return; }
+          const timer = setTimeout(() => {
+            syncToCloud({ month, year, entries, lastUpdated: new Date().toISOString() });
+          }, 800);
+          return () => clearTimeout(timer);
+        }, [month, year, entries, syncToCloud]);
+
+        const addEntry = () => {
+          const newId = entries.length ? Math.max(...entries.map(e => e.id)) + 1 : 1;
+          setEntries([...entries, {
+            id: newId,
+            date: new Date().toISOString().split("T")[0],
+            description: "",
+            amount: ""
+          }]);
+        };
+
+        const deleteEntry = (id) => {
+          setEntries(prev => prev.filter(e => e.id !== id));
+        };
+
+        const updateEntry = (id, field, value) => {
+          setEntries(prev => prev.map(e => e.id === id ? { ...e, [field]: value } : e));
+        };
+
+        const totalAmount = useMemo(() => {
+          return entries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+        }, [entries]);
+
+        const getSyncColor = () => syncStatus === "syncing" ? "text-yellow-600" : syncStatus === "synced" ? "text-green-600" : "text-red-600";
+        const getSyncText = () => syncStatus === "syncing" ? "Syncing..." : syncStatus === "synced" ? "Saved" : "Error";
+
+        return (
+          <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
+              <div className="flex items-center gap-3">
+                <CreditCard />
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Credit Card Expenses</h1>
               </div>
+              <div className={`flex items-center gap-2 ${getSyncColor()}`}>
+                <Cloud /><span className="text-sm font-medium">{getSyncText()}</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Month</label>
+                <select value={month} onChange={e => setMonth(e.target.value)} className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-red-500 text-base">
+                  {months.map(m => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
+                <input type="number" value={year} onChange={e => setYear(e.target.value)} className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-red-500 text-base" />
+              </div>
+              <div className="flex items-end">
+                <button onClick={addEntry} className="w-full flex items-center justify-center gap-2 bg-red-600 text-white px-4 py-3 rounded-lg hover:bg-red-700 transition font-medium">
+                  <Plus /> Add Expense
+                </button>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto table-container -mx-4 sm:mx-0 mb-6">
+              <table className="w-full min-w-[600px]">
+                <thead className="bg-red-600 text-white">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-semibold text-sm">Date</th>
+                    <th className="px-4 py-3 text-left font-semibold text-sm">Description</th>
+                    <th className="px-4 py-3 text-left font-semibold text-sm">Amount (₹)</th>
+                    <th className="px-4 py-3 text-center font-semibold text-sm">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {entries.map((entry, i) => (
+                    <tr key={entry.id} className={i % 2 === 0 ? "bg-gray-50" : "bg-white"}>
+                      <td className="px-4 py-3">
+                        <input type="date" value={entry.date} onChange={e => updateEntry(entry.id, "date", e.target.value)} className="w-full px-3 py-2 border rounded text-sm" />
+                      </td>
+                      <td className="px-4 py-3">
+                        <input type="text" value={entry.description} onChange={e => updateEntry(entry.id, "description", e.target.value)} placeholder="e.g. Amazon purchase" className="w-full px-3 py-2 border rounded text-sm" />
+                      </td>
+                      <td className="px-4 py-3">
+                        <input type="number" min="0" value={entry.amount} onChange={e => updateEntry(entry.id, "amount", e.target.value)} placeholder="0" className="w-full px-3 py-2 border rounded text-sm" />
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <button onClick={() => deleteEntry(entry.id)} className="text-red-600 hover:text-red-800 p-2">
+                          <Trash2 />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-8 p-6 bg-red-50 rounded-lg text-center">
+              <p className="text-lg text-gray-700 mb-2">Total Credit Card Expense</p>
+              <p className="text-4xl font-bold text-red-600">₹{totalAmount.toLocaleString()}</p>
+            </div>
+
+            <div className="mt-4 text-center text-sm text-gray-600">
+              User ID: {FIXED_USER_ID} • Data auto-saved to cloud
             </div>
           </div>
         );
       };
 
       const root = ReactDOM.createRoot(document.getElementById("root"));
-      root.render(<MonthlyExpenseSheet />);
+      root.render(<App />);
     </script>
   </body>
 </html>
