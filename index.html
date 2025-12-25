@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Personal Finance Tracker</title>
 
-    <!-- Google Fonts: Inter for modern typography -->
+    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
     <!-- Tailwind CSS -->
@@ -51,7 +51,6 @@
         .table-container::after { display: none; } 
       }
 
-      /* Card elevation */
       .card {
         background: white;
         border-radius: 16px;
@@ -63,13 +62,11 @@
         transform: translateY(-4px);
       }
 
-      /* Table row hover */
       tbody tr:hover {
         background-color: #f8fafc !important;
         transition: background-color 0.2s;
       }
 
-      /* Focus styles */
       input:focus, select:focus {
         outline: none;
         box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
@@ -97,7 +94,6 @@
       const db = firebase.firestore();
       const FIXED_USER_ID = "rakesh-expense-tracker";
 
-      // Icons
       const Plus = () => (
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <line x1="12" y1="5" x2="12" y2="19" />
@@ -142,7 +138,6 @@
         return (
           <div className="min-h-screen">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-              {/* Header */}
               <header className="text-center mb-12">
                 <h1 className="text-4xl sm:text-5xl font-extrabold text-indigo-800 mb-3">
                   Personal Finance Tracker
@@ -150,7 +145,6 @@
                 <p className="text-lg text-gray-600">Track your monthly cash & credit card expenses with ease</p>
               </header>
 
-              {/* Tabs */}
               <div className="flex flex-wrap justify-center gap-6 mb-12 bg-white rounded-2xl shadow-lg p-4 max-w-3xl mx-auto">
                 <button
                   onClick={() => setActiveTab("monthly")}
@@ -174,7 +168,6 @@
                 </button>
               </div>
 
-              {/* Main Content */}
               <div className="card p-6 sm:p-10">
                 {activeTab === "monthly" ? <MonthlyExpenseSheet /> : <CreditCardExpenseSheet />}
               </div>
@@ -184,14 +177,15 @@
       };
 
       const MonthlyExpenseSheet = () => {
-        const [month, setMonth] = useState("December");
-        const [year, setYear] = useState("2025");
+        const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+        const now = new Date();
+        const [month, setMonth] = useState(months[now.getMonth()]);
+        const [year, setYear] = useState(now.getFullYear().toString());
         const [startingBalance, setStartingBalance] = useState(50000);
         const [syncStatus, setSyncStatus] = useState("synced");
         const [expenses, setExpenses] = useState([]);
         const isInitialLoad = useRef(true);
 
-        const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
         const monthIndex = months.indexOf(month);
         const monthKey = `${year}-${String(monthIndex + 1).padStart(2, "0")}`;
 
@@ -222,6 +216,10 @@
               const data = doc.data();
               setStartingBalance(data.startingBalance ?? 50000);
               setExpenses(data.expenses ?? []);
+              if (data.month && data.year) {
+                setMonth(data.month);
+                setYear(data.year);
+              }
             } else {
               setExpenses([]);
             }
@@ -230,7 +228,9 @@
           }
         }, [monthKey]);
 
-        useEffect(() => { loadFromCloud(); }, [loadFromCloud]);
+        useEffect(() => {
+          loadFromCloud();
+        }, [loadFromCloud]);
 
         useEffect(() => {
           if (isInitialLoad.current) {
@@ -312,9 +312,7 @@
           const lunchCount = expenses.filter(e => e.meal === "Lunch").length;
           const teaCount = expenses.filter(e => e.meal === "Tea").length;
 
-          const fuelTotal = expenses
-            .filter(e => e.description === "Fuel")
-            .reduce((s, e) => s + (Number(e.debit) || 0), 0);
+          const fuelTotal = expenses.filter(e => e.description === "Fuel").reduce((s, e) => s + (Number(e.debit) || 0), 0);
 
           return {
             openingBalance, totalDebit, totalCredit, netDebit, currentBalance,
@@ -380,14 +378,14 @@
             </div>
 
             <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg mb-6">
-              <p className="text-sm text-blue-800"><strong>📱 User ID:</strong> {FIXED_USER_ID}</p>
+              <p className="text-sm text-blue-800"><strong>User ID:</strong> {FIXED_USER_ID}</p>
               <p className="text-xs text-blue-600 mt-1">Data is automatically synced to Firebase</p>
             </div>
 
             <div className="overflow-x-auto table-container -mx-4 sm:mx-0 mb-10">
               {calculations.currentBalance < 0 && (
                 <div className="bg-red-100 text-red-800 px-6 py-4 mx-4 rounded-xl text-sm font-medium mb-4">
-                  ⚠️ Warning: Your expenses exceed your available balance!
+                  Warning: Your expenses exceed your available balance!
                 </div>
               )}
               <table className="w-full min-w-[900px]">
@@ -449,7 +447,6 @@
               </table>
             </div>
 
-            {/* Summary Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
               <div className="card p-6 text-center bg-gradient-to-br from-blue-50 to-blue-100">
                 <div className="text-5xl mb-3">💰</div>
@@ -497,14 +494,14 @@
       };
 
       const CreditCardExpenseSheet = () => {
-        const currentDate = new Date();
-        const [month, setMonth] = useState(currentDate.toLocaleString('default', { month: 'long' }));
-        const [year, setYear] = useState(currentDate.getFullYear().toString());
+        const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+        const now = new Date();
+        const [month, setMonth] = useState(months[now.getMonth()]);
+        const [year, setYear] = useState(now.getFullYear().toString());
         const [entries, setEntries] = useState([]);
         const [syncStatus, setSyncStatus] = useState("synced");
         const isInitialLoad = useRef(true);
 
-        const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
         const monthIndex = months.indexOf(month);
         const monthKey = `${year}-${String(monthIndex + 1).padStart(2, "0")}`;
         const collectionPath = "creditCardExpenses";
@@ -515,7 +512,12 @@
           try {
             const doc = await db.collection(collectionPath).doc(FIXED_USER_ID).collection("months").doc(monthKey).get();
             if (doc.exists) {
-              setEntries(doc.data().entries || []);
+              const data = doc.data();
+              setEntries(data.entries || []);
+              if (data.month && data.year) {
+                setMonth(data.month);
+                setYear(data.year);
+              }
             } else {
               setEntries([]);
             }
@@ -534,10 +536,15 @@
           }
         }, [monthKey]);
 
-        useEffect(() => { loadFromCloud(); }, [loadFromCloud]);
+        useEffect(() => {
+          loadFromCloud();
+        }, [loadFromCloud]);
 
         useEffect(() => {
-          if (isInitialLoad.current) { isInitialLoad.current = false; return; }
+          if (isInitialLoad.current) {
+            isInitialLoad.current = false;
+            return;
+          }
           const timer = setTimeout(() => {
             syncToCloud({ month, year, entries, lastUpdated: new Date().toISOString() });
           }, 800);
