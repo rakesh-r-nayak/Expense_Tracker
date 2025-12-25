@@ -306,26 +306,10 @@
           }
         };
 
-        // ✅ NEW (correct month-wise loading)
+        // ✅ Load data once when month changes
         useEffect(() => {
-          if (!userId) return;
-
-          const unsubscribe = db
-            .collection("expenseTracker")
-            .doc(userId)
-            .collection("months")
-            .doc(monthKey)
-            .onSnapshot((doc) => {
-              if (doc.exists) {
-                const data = doc.data();
-                if (data.startingBalance !== undefined)
-                  setStartingBalance(data.startingBalance);
-                if (data.expenses) setExpenses(data.expenses);
-              }
-            });
-
-          return () => unsubscribe();
-        }, [userId, monthKey]);
+          loadFromCloud();
+        }, [monthKey]);
 
         // Auto-sync whenever data changes
         useEffect(() => {
