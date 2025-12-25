@@ -274,34 +274,34 @@
               lastUpdated: new Date().toISOString(),
             };
 
-            // Emergency save when user closes or refreshes the page
-            useEffect(() => {
-              const handleBeforeUnload = () => {
-                if (!userId) return;
-
-                const dataToSync = {
-                  month,
-                  year,
-                  startingBalance,
-                  expenses,
-                  userId,
-                  lastUpdated: new Date().toISOString(),
-                };
-
-                syncToCloud(dataToSync);
-              };
-
-              window.addEventListener("beforeunload", handleBeforeUnload);
-              return () =>
-                window.removeEventListener("beforeunload", handleBeforeUnload);
-            }, [month, year, startingBalance, expenses, userId]);
-
             const timeoutId = setTimeout(() => {
               syncToCloud(dataToSync);
             }, 200);
 
             return () => clearTimeout(timeoutId);
           }
+        }, [month, year, startingBalance, expenses, userId]);
+
+        // Emergency save when user closes or refreshes the page
+        useEffect(() => {
+          const handleBeforeUnload = () => {
+            if (!userId) return;
+
+            const dataToSync = {
+              month,
+              year,
+              startingBalance,
+              expenses,
+              userId,
+              lastUpdated: new Date().toISOString(),
+            };
+
+            syncToCloud(dataToSync);
+          };
+
+          window.addEventListener("beforeunload", handleBeforeUnload);
+          return () =>
+            window.removeEventListener("beforeunload", handleBeforeUnload);
         }, [month, year, startingBalance, expenses, userId]);
 
         const addExpense = () => {
