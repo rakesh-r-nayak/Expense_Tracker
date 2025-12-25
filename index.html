@@ -154,6 +154,23 @@
         const FIXED_USER_ID = "rakesh-expense-tracker";
         const [userId] = useState(FIXED_USER_ID);
 
+        const monthKey = `${year}-${String(
+          [
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December",
+          ].indexOf(month) + 1
+        ).padStart(2, "0")}`;
+
         const exportToExcel = () => {
           const worksheetData = [
             ["Date", "Description", "Meal", "Debit", "Credit"],
