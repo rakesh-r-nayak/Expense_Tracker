@@ -235,6 +235,16 @@
         };
 
         const loadFromCloud = async () => {
+          // Load from local backup first (instant)
+          const local = localStorage.getItem("expenseBackup");
+          if (local) {
+            const data = JSON.parse(local);
+            setMonth(data.month || "January");
+            setYear(data.year || "2025");
+            setStartingBalance(data.startingBalance || "");
+            setExpenses(data.expenses || []);
+          }
+
           if (!userId) return;
 
           try {
@@ -247,7 +257,6 @@
               setStartingBalance(
                 data.startingBalance !== undefined ? data.startingBalance : ""
               );
-
               setExpenses(data.expenses || []);
             }
           } catch (error) {
@@ -303,6 +312,17 @@
           return () =>
             window.removeEventListener("beforeunload", handleBeforeUnload);
         }, [month, year, startingBalance, expenses, userId]);
+
+        // 🧠 Instant local backup (this is the new one)
+        useEffect(() => {
+          const data = {
+            month,
+            year,
+            startingBalance,
+            expenses,
+          };
+          localStorage.setItem("expenseBackup", JSON.stringify(data));
+        }, [month, year, startingBalance, expenses]);
 
         const addExpense = () => {
           const newId = Math.max(...expenses.map((e) => e.id), 0) + 1;
