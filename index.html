@@ -12,7 +12,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
-    <!-- SheetJS (optional for future export) -->
+    <!-- SheetJS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
     <!-- React -->
@@ -144,11 +144,10 @@
         );
       };
 
-      // Full Monthly Expense Sheet (mobile-optimized from previous)
+      // Full Monthly Expense Sheet (with Tea/Lunch counts and Fuel total)
       const MonthlyExpenseSheet = () => {
-        const currentDate = new Date();
-        const [month, setMonth] = useState(currentDate.toLocaleString('default', { month: 'long' }));
-        const [year, setYear] = useState(currentDate.getFullYear().toString());
+        const [month, setMonth] = useState("December");
+        const [year, setYear] = useState("2025");
         const [startingBalance, setStartingBalance] = useState(50000);
         const [syncStatus, setSyncStatus] = useState("synced");
         const [expenses, setExpenses] = useState([]);
@@ -193,9 +192,7 @@
           }
         }, [monthKey]);
 
-        useEffect(() => {
-          loadFromCloud();
-        }, [loadFromCloud]);
+        useEffect(() => { loadFromCloud(); }, [loadFromCloud]);
 
         useEffect(() => {
           if (isInitialLoad.current) {
@@ -274,6 +271,13 @@
           const lunchTotal = expenses.filter(e => e.meal === "Lunch").reduce((s, e) => s + (Number(e.debit) || 0), 0);
           const teaTotal = expenses.filter(e => e.meal === "Tea").reduce((s, e) => s + (Number(e.debit) || 0), 0);
 
+          const lunchCount = expenses.filter(e => e.meal === "Lunch").length;
+          const teaCount = expenses.filter(e => e.meal === "Tea").length;
+
+          const fuelTotal = expenses
+            .filter(e => e.description === "Fuel")
+            .reduce((s, e) => s + (Number(e.debit) || 0), 0);
+
           const expenseByDescription = {};
           expenses.forEach(e => {
             if (!["Lunch", "Tea"].includes(e.meal)) {
@@ -282,7 +286,11 @@
             }
           });
 
-          return { openingBalance, totalDebit, totalCredit, netDebit, currentBalance, lunchTotal, teaTotal, expenseByDescription };
+          return {
+            openingBalance, totalDebit, totalCredit, netDebit, currentBalance,
+            lunchTotal, teaTotal, lunchCount, teaCount, fuelTotal,
+            expenseByDescription
+          };
         }, [expenses, startingBalance]);
 
         const getSyncStatusColor = () => {
@@ -416,59 +424,47 @@
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <div className="bg-white rounded-lg shadow-lg p-5 border">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Opening Balance</p>
-                    <p className="text-2xl font-bold text-blue-600">₹{calculations.openingBalance.toLocaleString()}</p>
-                  </div>
-                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center"><span className="text-2xl">💼</span></div>
-                </div>
+              <div className="bg-white rounded-lg shadow p-5 border">
+                <p className="text-sm text-gray-600 mb-1">Opening Balance</p>
+                <p className="text-2xl font-bold text-blue-600">₹{calculations.openingBalance.toLocaleString()}</p>
               </div>
-
-              <div className="bg-white rounded-lg shadow-lg p-5 border">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Other Credits</p>
-                    <p className="text-2xl font-bold text-green-600">₹{calculations.totalCredit.toLocaleString()}</p>
-                  </div>
-                  <TrendingUp />
-                </div>
+              <div className="bg-white rounded-lg shadow p-5 border">
+                <p className="text-sm text-gray-600 mb-1">Other Credits</p>
+                <p className="text-2xl font-bold text-green-600">₹{calculations.totalCredit.toLocaleString()}</p>
               </div>
-
-              <div className="bg-white rounded-lg shadow-lg p-5 border">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Net Debit</p>
-                    <p className="text-2xl font-bold text-red-600">₹{calculations.netDebit.toLocaleString()}</p>
-                    <p className="text-sm text-gray-600 mt-3 mb-1">Total Expenses</p>
-                    <p className="text-xl font-bold text-orange-600">₹{calculations.totalDebit.toLocaleString()}</p>
-                  </div>
-                  <TrendingDown />
-                </div>
+              <div className="bg-white rounded-lg shadow p-5 border">
+                <p className="text-sm text-gray-600 mb-1">Net Debit</p>
+                <p className="text-2xl font-bold text-red-600">₹{calculations.netDebit.toLocaleString()}</p>
               </div>
-
-              <div className="bg-white rounded-lg shadow-lg p-5 border">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Current Balance</p>
-                    <p className={`text-2xl font-bold ${calculations.currentBalance >= 0 ? "text-blue-600" : "text-red-600"}`}>
-                      ₹{calculations.currentBalance.toLocaleString()}
-                    </p>
-                  </div>
-                  <div className={`w-10 h-10 rounded-full ${calculations.currentBalance >= 0 ? "bg-blue-100" : "bg-red-100"} flex items-center justify-center`}>
-                    <span className="text-2xl">{calculations.currentBalance >= 0 ? "💰" : "⚠️"}</span>
-                  </div>
-                </div>
+              <div className="bg-white rounded-lg shadow p-5 border">
+                <p className="text-sm text-gray-600 mb-1">Current Balance</p>
+                <p className={`text-2xl font-bold ${calculations.currentBalance >= 0 ? "text-blue-600" : "text-red-600"}`}>
+                  ₹{calculations.currentBalance.toLocaleString()}
+                </p>
               </div>
             </div>
 
-            {/* Additional sections like Meal Expenses, Breakdown, Summary can be added here if needed */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+              <div className="bg-orange-50 rounded-lg shadow p-5 border border-orange-200">
+                <p className="text-sm text-orange-700 mb-1">Lunch Count</p>
+                <p className="text-3xl font-bold text-orange-600">{calculations.lunchCount}</p>
+                <p className="text-sm text-gray-600 mt-2">Total: ₹{calculations.lunchTotal.toLocaleString()}</p>
+              </div>
+              <div className="bg-purple-50 rounded-lg shadow p-5 border border-purple-200">
+                <p className="text-sm text-purple-700 mb-1">Tea Count</p>
+                <p className="text-3xl font-bold text-purple-600">{calculations.teaCount}</p>
+                <p className="text-sm text-gray-600 mt-2">Total: ₹{calculations.teaTotal.toLocaleString()}</p>
+              </div>
+              <div className="bg-yellow-50 rounded-lg shadow p-5 border border-yellow-200">
+                <p className="text-sm text-yellow-700 mb-1">Fuel Total</p>
+                <p className="text-3xl font-bold text-yellow-600">₹{calculations.fuelTotal.toLocaleString()}</p>
+              </div>
+            </div>
           </div>
         );
       };
 
-      // Credit Card Expense Sheet (unchanged)
+      // Updated Credit Card Expense Sheet (No Category, Description free text, Meal dropdown, Fuel via description keyword)
       const CreditCardExpenseSheet = () => {
         const currentDate = new Date();
         const [month, setMonth] = useState(currentDate.toLocaleString('default', { month: 'long' }));
@@ -481,6 +477,8 @@
         const monthIndex = months.indexOf(month);
         const monthKey = `${year}-${String(monthIndex + 1).padStart(2, "0")}`;
         const collectionPath = "creditCardExpenses";
+
+        const mealOptions = ["", "Lunch", "Tea"];
 
         const loadFromCloud = useCallback(async () => {
           try {
@@ -517,10 +515,11 @@
 
         const addEntry = () => {
           const newId = entries.length ? Math.max(...entries.map(e => e.id)) + 1 : 1;
-          setEntries([...entries, {
+          setEntries(prev => [...prev, {
             id: newId,
             date: new Date().toISOString().split("T")[0],
             description: "",
+            meal: "",
             amount: ""
           }]);
         };
@@ -533,12 +532,26 @@
           setEntries(prev => prev.map(e => e.id === id ? { ...e, [field]: value } : e));
         };
 
-        const totalAmount = useMemo(() => {
-          return entries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+        const calculations = useMemo(() => {
+          const total = entries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
+          const lunchEntries = entries.filter(e => e.meal === "Lunch");
+          const teaEntries = entries.filter(e => e.meal === "Tea");
+          const fuelEntries = entries.filter(e => e.description.toLowerCase().includes('fuel'));
+
+          const lunchCount = lunchEntries.length;
+          const lunchTotal = lunchEntries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+          const teaCount = teaEntries.length;
+          const teaTotal = teaEntries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+          const fuelTotal = fuelEntries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+
+          const otherTotal = total - lunchTotal - teaTotal - fuelTotal;
+
+          return { total, lunchCount, lunchTotal, teaCount, teaTotal, fuelTotal, otherTotal };
         }, [entries]);
 
         const getSyncColor = () => syncStatus === "syncing" ? "text-yellow-600" : syncStatus === "synced" ? "text-green-600" : "text-red-600";
-        const getSyncText = () => syncStatus === "syncing" ? "Syncing..." : syncStatus === "synced" ? "Saved" : "Error";
+        const getSyncText = () => syncStatus === "syncing" ? "Syncing..." : syncStatus === "synced" ? "Saved" : "Sync error";
 
         return (
           <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6">
@@ -556,9 +569,7 @@
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Month</label>
                 <select value={month} onChange={e => setMonth(e.target.value)} className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-red-500 text-base">
-                  {months.map(m => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
+                  {months.map(m => <option key={m} value={m}>{m}</option>)}
                 </select>
               </div>
               <div>
@@ -573,11 +584,12 @@
             </div>
 
             <div className="overflow-x-auto table-container -mx-4 sm:mx-0 mb-6">
-              <table className="w-full min-w-[600px]">
+              <table className="w-full min-w-[700px]">
                 <thead className="bg-red-600 text-white">
                   <tr>
                     <th className="px-4 py-3 text-left font-semibold text-sm">Date</th>
                     <th className="px-4 py-3 text-left font-semibold text-sm">Description</th>
+                    <th className="px-4 py-3 text-left font-semibold text-sm">Meal</th>
                     <th className="px-4 py-3 text-left font-semibold text-sm">Amount (₹)</th>
                     <th className="px-4 py-3 text-center font-semibold text-sm">Action</th>
                   </tr>
@@ -589,7 +601,12 @@
                         <input type="date" value={entry.date} onChange={e => updateEntry(entry.id, "date", e.target.value)} className="w-full px-3 py-2 border rounded text-sm" />
                       </td>
                       <td className="px-4 py-3">
-                        <input type="text" value={entry.description} onChange={e => updateEntry(entry.id, "description", e.target.value)} placeholder="e.g. Amazon purchase" className="w-full px-3 py-2 border rounded text-sm" />
+                        <input type="text" value={entry.description} onChange={e => updateEntry(entry.id, "description", e.target.value)} placeholder="e.g. Fuel, Amazon, etc." className="w-full px-3 py-2 border rounded text-sm" />
+                      </td>
+                      <td className="px-4 py-3">
+                        <select value={entry.meal} onChange={e => updateEntry(entry.id, "meal", e.target.value)} className="w-full px-3 py-2 border rounded text-sm">
+                          {mealOptions.map(opt => <option key={opt} value={opt}>{opt || "None"}</option>)}
+                        </select>
                       </td>
                       <td className="px-4 py-3">
                         <input type="number" min="0" value={entry.amount} onChange={e => updateEntry(entry.id, "amount", e.target.value)} placeholder="0" className="w-full px-3 py-2 border rounded text-sm" />
@@ -605,9 +622,33 @@
               </table>
             </div>
 
-            <div className="mt-8 p-6 bg-red-50 rounded-lg text-center">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <div className="bg-orange-50 rounded-lg shadow p-5 border border-orange-200">
+                <p className="text-sm text-orange-700 mb-1">Lunch</p>
+                <p className="text-2xl font-bold text-orange-600">{calculations.lunchCount} times</p>
+                <p className="text-lg text-gray-700">₹{calculations.lunchTotal.toLocaleString()}</p>
+              </div>
+
+              <div className="bg-purple-50 rounded-lg shadow p-5 border border-purple-200">
+                <p className="text-sm text-purple-700 mb-1">Tea</p>
+                <p className="text-2xl font-bold text-purple-600">{calculations.teaCount} times</p>
+                <p className="text-lg text-gray-700">₹{calculations.teaTotal.toLocaleString()}</p>
+              </div>
+
+              <div className="bg-yellow-50 rounded-lg shadow p-5 border border-yellow-200">
+                <p className="text-sm text-yellow-700 mb-1">Fuel</p>
+                <p className="text-3xl font-bold text-yellow-600">₹{calculations.fuelTotal.toLocaleString()}</p>
+              </div>
+
+              <div className="bg-gray-50 rounded-lg shadow p-5 border border-gray-300">
+                <p className="text-sm text-gray-700 mb-1">Other</p>
+                <p className="text-3xl font-bold text-gray-800">₹{calculations.otherTotal.toLocaleString()}</p>
+              </div>
+            </div>
+
+            <div className="p-6 bg-red-50 rounded-lg text-center border border-red-200">
               <p className="text-lg text-gray-700 mb-2">Total Credit Card Expense</p>
-              <p className="text-4xl font-bold text-red-600">₹{totalAmount.toLocaleString()}</p>
+              <p className="text-4xl font-bold text-red-600">₹{calculations.total.toLocaleString()}</p>
             </div>
 
             <div className="mt-4 text-center text-sm text-gray-600">
