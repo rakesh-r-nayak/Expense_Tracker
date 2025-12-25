@@ -280,8 +280,8 @@
           const local = localStorage.getItem(`expenseBackup-${monthKey}`);
           if (local) {
             const data = JSON.parse(local);
-            setMonth(data.month || month);
-            setYear(data.year || year);
+            if (data.month) setMonth(data.month);
+            if (data.year) setYear(data.year);
             setStartingBalance(data.startingBalance || "");
             setExpenses(data.expenses || []);
           }
@@ -306,12 +306,12 @@
           }
         };
 
-        // Load data once when component mounts
+        // ✅ NEW (correct month-wise loading)
         useEffect(() => {
-          if (userId) {
+          if (userId && monthKey) {
             loadFromCloud();
           }
-        }, [userId]);
+        }, [userId, monthKey]);
 
         // Auto-sync whenever data changes
         useEffect(() => {
