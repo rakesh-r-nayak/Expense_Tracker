@@ -308,9 +308,23 @@
 
         // ✅ NEW (correct month-wise loading)
         useEffect(() => {
-          if (userId && monthKey) {
-            loadFromCloud();
-          }
+          if (!userId) return;
+
+          const unsubscribe = db
+            .collection("expenseTracker")
+            .doc(userId)
+            .collection("months")
+            .doc(monthKey)
+            .onSnapshot((doc) => {
+              if (doc.exists) {
+                const data = doc.data();
+                if (data.startingBalance !== undefined)
+                  setStartingBalance(data.startingBalance);
+                if (data.expenses) setExpenses(data.expenses);
+              }
+            });
+
+          return () => unsubscribe();
         }, [userId, monthKey]);
 
         // Auto-sync whenever data changes
